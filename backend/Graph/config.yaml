@@ -17,7 +17,7 @@ gemini:
 
 local:
   backend: ollama
-  model: qwen3-coder
+  model: gpt-oss:120b-cloud
   base_url: http://localhost:11434
 
 groq:
