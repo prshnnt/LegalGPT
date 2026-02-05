@@ -3,43 +3,20 @@ from deepagents import create_deep_agent
 from langchain_ollama import ChatOllama
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
-from tools.web_search_tool import internet_search
+from tools import internet_search
 from dotenv import load_dotenv
 load_dotenv()
 
-
-# 1. SETUP OLLAMA MODEL
-# We use Ollama as the brain for the Deep Agent
-# Ensure the Ollama server is running locally on port 11434 (default)
 llm = ChatOllama(
     model="gpt-oss:120b-cloud", # Use the model you pulled
     base_url="http://localhost:11434", # Point to the local Ollama server
     temperature=0
 )
 
-# 2. DEFINE THE RAG TOOL
-# The Deep Agent will use this tool when its "Plan" requires external knowledge.
-# Currently a PLACEHOLDER. We will connect your real data here in the next step.
 
-
-@tool
-def search_knowledge_base(query: str):
-    """
-    Search the internal knowledge base for documents relevant to the query.
-    Use this whenever you need factual information that is not in the conversation history.
-    """
-    print(f"    🔎 Deep Agent is searching for: {query}")
-    return f"Found some initial information about '{query}'. (Placeholder Data)"
-
-# 3. CREATE THE DEEP AGENT
-# We pass the Ollama model and our RAG tool.
-# The 'deepagents' library automatically adds:
-#   - A Planning Tool (to break down complex questions)
-#   - A File System Tool (to write notes/memory to disk if needed)
-#   - Sub-agent spawning capabilities
 agent_graph = create_deep_agent(
     model=llm,
-    tools=[search_knowledge_base,internet_search],
+    tools=[internet_search],
     checkpointer=MemorySaver() # This enables Short-Term Chat Memory
 )
 
