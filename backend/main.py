@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from deepagents import create_deep_agent
@@ -46,7 +46,7 @@ llm = ChatOllama(
 )
 
 # Import tools
-from tools import internet_search
+from Graph.tools import internet_search
 
 # Pydantic models
 class ChatCreate(BaseModel):
@@ -68,8 +68,7 @@ class ChatResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class MessageResponse(BaseModel):
     id: int
@@ -78,8 +77,7 @@ class MessageResponse(BaseModel):
     content: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # User endpoints
@@ -154,10 +152,15 @@ def get_chat_messages(chat_id: int, db: Session = Depends(get_db)):
     return messages
 
 
-# Agent streaming endpoint
-@app.post("/chats/{chat_id}/stream")
-async def stream_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_db)):
-    """Stream agent response for a message"""
+# Non-streaming message endpoint (for testing)
+@app.post("/chats/{chat_id}/message")
+async def send_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_db)):
+    """Send a message and get complete response (non-streaming)"""
+    import logging
+    import traceback
+    
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger(__name__)
     
     # Verify chat exists
     chat = db.query(Chat).filter(Chat.id == chat_id).first()
@@ -173,61 +176,184 @@ async def stream_message(chat_id: int, message: MessageCreate, db: Session = Dep
     db.commit()
     
     # Update chat timestamp
-    chat.updated_at = datetime.utcnow()
+    chat.updated_at = datetime.now()
     db.commit()
     
-    # Create checkpointer with database connection
-    checkpointer = PostgresCheckpointer(db_session=db)
+    try:
+        logger.info(f"Processing message for chat {chat_id}")
+        
+        # Create checkpointer with database connection
+        checkpointer = PostgresCheckpointer(db_session=db)
+        
+        # Create agent with database-backed checkpointer
+        agent_graph = create_deep_agent(
+            model=llm,
+            tools=[internet_search],
+            checkpointer=checkpointer
+        )
+        
+        # Thread ID for conversation continuity
+        thread_id = f"chat_{chat_id}"
+        config = {"configurable": {"thread_id": thread_id}}
+        
+        logger.info("Invoking agent...")
+        
+        # Get response from agent
+        result = await agent_graph.ainvoke(
+            {"messages": [HumanMessage(content=message.content)]},
+            config=config
+        )
+        
+        logger.info(f"Result: {result}")
+        
+        # Extract response
+        response_content = ""
+        if "messages" in result:
+            for msg in result["messages"]:
+                if hasattr(msg, "content") and msg.content:
+                    response_content = msg.content
+        
+        # Save assistant message to database
+        assistant_message = Message(
+            chat_id=chat_id,
+            role="assistant",
+            content=response_content
+        )
+        db.add(assistant_message)
+        db.commit()
+        
+        return {
+            "message_id": assistant_message.id,
+            "content": response_content,
+            "created_at": assistant_message.created_at
+        }
+        
+    except Exception as e:
+        logger.error(f"Error: {str(e)}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Agent streaming endpoint
+@app.post("/chats/{chat_id}/stream")
+async def stream_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_db)):
+    """Stream agent response for a message"""
+    import logging
+    import traceback
     
-    # Create agent with database-backed checkpointer
-    agent_graph = create_deep_agent(
-        model=llm,
-        tools=[internet_search],
-        checkpointer=checkpointer
-    )
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger(__name__)
     
-    # Thread ID for conversation continuity
-    thread_id = f"chat_{chat_id}"
-    config = {"configurable": {"thread_id": thread_id}}
+    # Verify chat exists
+    chat = db.query(Chat).filter(Chat.id == chat_id).first()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    if message.chat_id != chat_id:
+        raise HTTPException(status_code=400, detail="Chat ID mismatch")
+    
+    # Save user message
+    user_message = Message(chat_id=chat_id, role="user", content=message.content)
+    db.add(user_message)
+    db.commit()
+    
+    # Update chat timestamp
+    chat.updated_at = datetime.now()
+    db.commit()
     
     async def generate_stream() -> AsyncGenerator[str, None]:
         """Generate streaming response from agent"""
         full_response = ""
         
         try:
-            # Stream events from the agent
-            async for event in agent_graph.astream_events(
-                {"messages": [HumanMessage(content=message.content)]},
-                config=config,
-                version="v2"
-            ):
-                # Extract and yield streamed tokens
-                if event["event"] == "on_chat_model_stream":
-                    chunk = event["data"]["chunk"]
-                    if hasattr(chunk, "content") and chunk.content:
-                        full_response += chunk.content
-                        yield f"data: {chunk.content}\n\n"
+            logger.info(f"Starting stream for chat {chat_id}")
+            yield f"data: [STARTING]\n\n"
+            
+            # Create checkpointer with database connection
+            checkpointer = PostgresCheckpointer(db_session=db)
+            
+            # Create agent with database-backed checkpointer
+            agent_graph = create_deep_agent(
+                model=llm,
+                tools=[internet_search],
+                checkpointer=checkpointer
+            )
+            
+            # Thread ID for conversation continuity
+            thread_id = f"chat_{chat_id}"
+            config = {"configurable": {"thread_id": thread_id}}
+            
+            logger.info(f"Agent created, starting stream...")
+            
+            # Try astream_events (for newer langgraph)
+            try:
+                async for event in agent_graph.astream_events(
+                    {"messages": [HumanMessage(content=message.content)]},
+                    config=config,
+                    version="v2"
+                ):
+                    # Extract and yield streamed tokens
+                    if event["event"] == "on_chat_model_stream":
+                        chunk = event["data"]["chunk"]
+                        if hasattr(chunk, "content") and chunk.content:
+                            full_response += chunk.content
+                            yield f"data: {chunk.content}\n\n"
+                    
+                    # Handle tool calls
+                    elif event["event"] == "on_tool_start":
+                        tool_name = event["name"]
+                        yield f"data: [TOOL: {tool_name}]\n\n"
+                    
+                    elif event["event"] == "on_tool_end":
+                        yield f"data: [TOOL COMPLETE]\n\n"
+                        
+            except AttributeError as e:
+                # Fallback to regular astream if astream_events is not available
+                logger.warning(f"astream_events not available, using astream: {e}")
+                yield f"data: [Using fallback streaming method]\n\n"
                 
-                # You can also handle tool calls here if needed
-                elif event["event"] == "on_tool_start":
-                    tool_name = event["name"]
-                    yield f"data: [TOOL: {tool_name}]\n\n"
+                async for chunk in agent_graph.astream(
+                    {"messages": [HumanMessage(content=message.content)]},
+                    config=config
+                ):
+                    logger.debug(f"Chunk: {chunk}")
+                    
+                    if "messages" in chunk:
+                        for msg in chunk["messages"]:
+                            if hasattr(msg, "content"):
+                                content = msg.content
+                                full_response += content
+                                yield f"data: {content}\n\n"
+            
+            # If no response generated, get final state
+            if not full_response:
+                logger.warning("No streaming response, invoking agent...")
+                result = await agent_graph.ainvoke(
+                    {"messages": [HumanMessage(content=message.content)]},
+                    config=config
+                )
                 
-                elif event["event"] == "on_tool_end":
-                    yield f"data: [TOOL COMPLETE]\n\n"
+                if "messages" in result:
+                    for msg in result["messages"]:
+                        if hasattr(msg, "content") and msg.content:
+                            full_response += msg.content
+                            yield f"data: {msg.content}\n\n"
             
             # Save assistant message to database
-            assistant_message = Message(
-                chat_id=chat_id,
-                role="assistant",
-                content=full_response
-            )
-            db.add(assistant_message)
-            db.commit()
+            if full_response:
+                assistant_message = Message(
+                    chat_id=chat_id,
+                    role="assistant",
+                    content=full_response
+                )
+                db.add(assistant_message)
+                db.commit()
+                logger.info(f"Saved response: {len(full_response)} chars")
             
             yield "data: [DONE]\n\n"
             
         except Exception as e:
+            error_msg = f"{str(e)}\n{traceback.format_exc()}"
+            logger.error(f"Stream error: {error_msg}")
             yield f"data: [ERROR: {str(e)}]\n\n"
     
     return StreamingResponse(
@@ -236,6 +362,7 @@ async def stream_message(chat_id: int, message: MessageCreate, db: Session = Dep
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
         }
     )
 

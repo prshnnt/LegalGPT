@@ -12,7 +12,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(255), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
     
     # Relationships
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -24,8 +24,8 @@ class Chat(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     title = Column(String(500), default="New Chat")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # Relationships
     user = relationship("User", back_populates="chats")
@@ -39,7 +39,7 @@ class Message(Base):
     chat_id = Column(Integer, ForeignKey("chats.id"), nullable=False, index=True)
     role = Column(String(50), nullable=False)  # 'user' or 'assistant'
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
     
     # Relationships
     chat = relationship("Chat", back_populates="messages")
@@ -55,8 +55,8 @@ class Checkpoint(Base):
     checkpoint_id = Column(String(255), nullable=False)
     parent_checkpoint_id = Column(String(255), nullable=True)
     checkpoint_data = Column(JSON, nullable=False)
-    metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    checkpoint_metadata = Column(JSON, nullable=True)  # Renamed from 'metadata' to avoid conflict
+    created_at = Column(DateTime, default=datetime.now)
     
     # Create composite index for faster lookups
     __table_args__ = (
