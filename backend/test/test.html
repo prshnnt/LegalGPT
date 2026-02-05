@@ -10,6 +10,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
   <style>
     :root {
       --bg: #0b0f1a;
@@ -18,10 +21,11 @@
       --border: #1f2a44;
       --text: #e5e7eb;
       --muted: #9ca3af;
-      --primary: #6366f1; /* indigo */
-      --primary-2: #8b5cf6; /* violet */
+      --primary: #6366f1;
+      --primary-2: #8b5cf6;
       --success: #22c55e;
       --danger: #ef4444;
+      --warning: #f59e0b;
       --bubble-user: linear-gradient(135deg, #6366f1, #8b5cf6);
       --bubble-ai: #0f1424;
     }
@@ -31,7 +35,7 @@
     body {
       margin: 0;
       height: 100vh;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: Inter, system-ui, sans-serif;
       background: radial-gradient(1200px 600px at 20% -10%, #1b235a 0%, transparent 40%),
                   radial-gradient(800px 400px at 90% 10%, #3b1c6a 0%, transparent 35%),
                   var(--bg);
@@ -52,7 +56,6 @@
       box-shadow: 0 30px 80px rgba(0,0,0,.6);
     }
 
-    /* Sidebar */
     .sidebar {
       background: var(--panel-2);
       border-right: 1px solid var(--border);
@@ -64,9 +67,7 @@
       padding: 18px 20px;
       font-weight: 700;
       font-size: 18px;
-      letter-spacing: .3px;
       display: flex;
-      align-items: center;
       gap: 10px;
       border-bottom: 1px solid var(--border);
     }
@@ -77,10 +78,7 @@
       -webkit-text-fill-color: transparent;
     }
 
-    .setup {
-      padding: 16px;
-      border-bottom: 1px solid var(--border);
-    }
+    .setup { padding: 16px; border-bottom: 1px solid var(--border); }
 
     .setup input {
       width: 100%;
@@ -90,7 +88,6 @@
       border: 1px solid var(--border);
       background: #0b1020;
       color: var(--text);
-      outline: none;
     }
 
     .setup button {
@@ -104,32 +101,18 @@
       color: white;
     }
 
-    .status {
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .status { font-size: 12px; color: var(--muted); }
 
-    /* Main chat */
-    .main {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
+    .main { display: flex; flex-direction: column; height: 100%; }
 
     .topbar {
       height: 64px;
       padding: 0 20px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
       border-bottom: 1px solid var(--border);
-      background: rgba(18, 23, 42, 0.6);
+      background: rgba(18,23,42,.6);
       backdrop-filter: blur(8px);
-    }
-
-    .chat-title {
-      font-weight: 600;
     }
 
     .chat-messages {
@@ -138,41 +121,81 @@
       padding: 24px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
     }
 
     .message {
-      max-width: 70%;
+      max-width: 75%;
       padding: 14px 16px;
       border-radius: 16px;
-      line-height: 1.45;
       font-size: 14px;
-      white-space: pre-wrap;
+      line-height: 1.55;
     }
 
     .message.user {
       align-self: flex-end;
       background: var(--bubble-user);
       color: white;
-      border-bottom-right-radius: 4px;
     }
 
     .message.assistant {
       align-self: flex-start;
       background: var(--bubble-ai);
       border: 1px solid var(--border);
-      border-bottom-left-radius: 4px;
     }
 
     .message.system {
       align-self: center;
-      max-width: 100%;
       background: #111827;
       color: var(--muted);
       font-size: 12px;
     }
 
-    /* Typing */
+    /* Markdown */
+    .message.assistant pre {
+      background: #020617;
+      padding: 12px;
+      border-radius: 10px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+
+    .message.assistant code {
+      color: #a5b4fc;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 13px;
+    }
+
+    .message.assistant h1,
+    .message.assistant h2,
+    .message.assistant h3 {
+      margin: 10px 0 6px;
+    }
+
+    .message.assistant ul { padding-left: 18px; }
+
+    /* Tool call cards */
+    .tool-call {
+      align-self: flex-start;
+      background: linear-gradient(135deg, #1f2937, #020617);
+      border: 1px solid var(--warning);
+      border-left: 4px solid var(--warning);
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 13px;
+      color: #fde68a;
+    }
+
+    .tool-call.complete {
+      border-color: var(--success);
+      color: #bbf7d0;
+    }
+
+    .tool-call.error {
+      border-color: var(--danger);
+      color: #fecaca;
+    }
+
     .typing {
       display: none;
       align-self: flex-start;
@@ -186,28 +209,24 @@
     .typing.active { display: inline-flex; }
 
     .dot {
-      width: 6px;
-      height: 6px;
-      background: var(--primary);
-      border-radius: 50%;
-      animation: bounce 1.4s infinite;
+      width: 6px; height: 6px; background: var(--primary);
+      border-radius: 50%; animation: bounce 1.4s infinite;
     }
 
     .dot:nth-child(2) { animation-delay: .2s; }
     .dot:nth-child(3) { animation-delay: .4s; }
 
     @keyframes bounce {
-      0%, 80%, 100% { transform: translateY(0); opacity: .4; }
-      40% { transform: translateY(-6px); opacity: 1; }
+      0%,80%,100% { transform: translateY(0); opacity:.4 }
+      40% { transform: translateY(-6px); opacity:1 }
     }
 
-    /* Input */
     .input-area {
       padding: 16px 20px;
       border-top: 1px solid var(--border);
       display: flex;
       gap: 12px;
-      background: rgba(18, 23, 42, 0.6);
+      background: rgba(18,23,42,.6);
       backdrop-filter: blur(8px);
     }
 
@@ -218,7 +237,6 @@
       border: 1px solid var(--border);
       background: #0b1020;
       color: var(--text);
-      outline: none;
     }
 
     .input-area button {
@@ -232,10 +250,7 @@
     }
 
     .input-area button:disabled,
-    .input-area input:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-    }
+    .input-area input:disabled { opacity:.5; cursor:not-allowed; }
 
     @media (max-width: 900px) {
       .app { grid-template-columns: 1fr; }
@@ -244,139 +259,127 @@
   </style>
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand">🤖 <span>DeepAgent</span></div>
-      <div class="setup">
-        <input id="username" placeholder="Username" value="test_user" />
-        <input id="email" placeholder="Email" value="test@example.com" />
-        <button onclick="initializeChat()">Start chat</button>
-        <div id="status" class="status"></div>
-      </div>
-    </aside>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">🤖 <span>DeepAgent</span></div>
+    <div class="setup">
+      <input id="username" value="test_user" placeholder="Username" />
+      <input id="email" value="test@example.com" placeholder="Email" />
+      <button onclick="initializeChat()">Start chat</button>
+      <div id="status" class="status"></div>
+    </div>
+  </aside>
 
-    <main class="main">
-      <div class="topbar">
-        <div class="chat-title">Chat session</div>
-      </div>
+  <main class="main">
+    <div class="topbar">Chat session</div>
+    <div id="messages" class="chat-messages"></div>
+    <div id="typingIndicator" class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <div class="input-area">
+      <input id="messageInput" disabled placeholder="Type a message…" />
+      <button id="sendButton" disabled onclick="sendMessage()">Send</button>
+    </div>
+  </main>
+</div>
 
-      <div id="messages" class="chat-messages"></div>
-      <div id="typingIndicator" class="typing">
-        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-      </div>
+<script>
+const API_URL = 'http://localhost:8000';
+const usernameInput = document.getElementById('username');
+const emailInput = document.getElementById('email');
+const messageInput = document.getElementById('messageInput');
+const sendButton = document.getElementById('sendButton');
+let currentUser = null;
+let currentChat = null;
 
-      <div class="input-area">
-        <input id="messageInput" placeholder="Type a message…" disabled />
-        <button id="sendButton" onclick="sendMessage()" disabled>Send</button>
-      </div>
-    </main>
-  </div>
+function addBubble(el) {
+  const messages = document.getElementById('messages');
+  messages.appendChild(el);
+  messages.scrollTop = messages.scrollHeight;
+}
 
-  <script>
-    const API_URL = 'http://localhost:8000';
-    let currentUser = null;
-    let currentChat = null;
+function addMessage(role, markdown) {
+  const el = document.createElement('div');
+  el.className = `message ${role}`;
+  el.innerHTML = role === 'assistant' ? marked.parse(markdown) : markdown;
+  addBubble(el);
+  return el;
+}
 
-    function addMessage(role, content) {
-      const messages = document.getElementById('messages');
-      const el = document.createElement('div');
-      el.className = `message ${role}`;
-      el.textContent = content;
-      messages.appendChild(el);
-      messages.scrollTop = messages.scrollHeight;
-      return el;
-    }
+function addTool(text, state = 'active') {
+  const el = document.createElement('div');
+  el.className = `tool-call ${state}`;
+  el.textContent = text;
+  addBubble(el);
+}
 
-    async function initializeChat() {
-      const username = usernameInput.value;
-      const email = emailInput.value;
-      const status = document.getElementById('status');
+async function initializeChat() {
+  if (!usernameInput.value || !emailInput.value) return;
 
-      try {
-        const userRes = await fetch(`${API_URL}/users/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, email })
-        });
+  const userRes = await fetch(`${API_URL}/users/`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: usernameInput.value, email: emailInput.value })
+  });
 
-        if (userRes.ok) currentUser = await userRes.json();
-        else currentUser = await (await fetch(`${API_URL}/users/1`)).json();
+  currentUser = userRes.ok ? await userRes.json() : await (await fetch(`${API_URL}/users/1`)).json();
 
-        const chatRes = await fetch(`${API_URL}/chats/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: currentUser.id, title: 'New Chat' })
-        });
+  const chatRes = await fetch(`${API_URL}/chats/`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: currentUser.id, title: 'New Chat' })
+  });
 
-        currentChat = await chatRes.json();
-        status.textContent = 'Chat ready';
-        status.style.color = 'var(--success)';
+  currentChat = await chatRes.json();
+  messageInput.disabled = false;
+  sendButton.disabled = false;
+  addMessage('system', `Chat started (ID ${currentChat.id})`);
+}
 
-        messageInput.disabled = false;
-        sendButton.disabled = false;
+async function sendMessage() {
+  const text = messageInput.value.trim();
+  if (!text) return;
 
-        addMessage('system', `Chat started (ID ${currentChat.id})`);
-      } catch (e) {
-        status.textContent = e.message;
-        status.style.color = 'var(--danger)';
+  addMessage('user', text);
+  messageInput.value = '';
+  messageInput.disabled = true;
+  sendButton.disabled = true;
+
+  const typing = document.getElementById('typingIndicator');
+  typing.classList.add('active');
+
+  const res = await fetch(`${API_URL}/chats/${currentChat.id}/stream`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: currentChat.id, content: text })
+  });
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let assistant = addMessage('assistant', '');
+  let buffer = '';
+
+  typing.classList.remove('active');
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    for (const line of decoder.decode(value).split('\n')) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+
+      if (data === '[DONE]') break;
+      if (data.startsWith('[TOOL:')) addTool(data.replace('[TOOL:', '🔧 Tool:'), 'active');
+      else if (data === '[TOOL COMPLETE]') addTool('✔ Tool completed', 'complete');
+      else if (data.startsWith('[ERROR')) addTool(data, 'error');
+      else {
+        buffer += data;
+        assistant.innerHTML = marked.parse(buffer);
       }
     }
+  }
 
-    async function sendMessage() {
-      const input = messageInput;
-      const text = input.value.trim();
-      if (!text || !currentChat) return;
+  messageInput.disabled = false;
+  sendButton.disabled = false;
+}
 
-      addMessage('user', text);
-      input.value = '';
-      input.disabled = true;
-      sendButton.disabled = true;
-
-      const typing = document.getElementById('typingIndicator');
-      typing.classList.add('active');
-
-      try {
-        const res = await fetch(`${API_URL}/chats/${currentChat.id}/stream`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: currentChat.id, content: text })
-        });
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let msg = addMessage('assistant', '');
-        let full = '';
-
-        typing.classList.remove('active');
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          for (const line of chunk.split('\n')) {
-            if (!line.startsWith('data: ')) continue;
-            const data = line.slice(6);
-
-            if (data === '[DONE]') return;
-            if (data.startsWith('[TOOL')) msg.textContent += `\n${data}\n`;
-            else if (data.startsWith('[ERROR')) msg.textContent += `\n❌ ${data}\n`;
-            else {
-              full += data;
-              msg.textContent = full;
-            }
-          }
-        }
-      } finally {
-        input.disabled = false;
-        sendButton.disabled = false;
-        input.focus();
-      }
-    }
-
-    messageInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') sendMessage();
-    });
-  </script>
+messageInput.addEventListener('keydown', e => e.key === 'Enter' && sendMessage());
+</script>
 </body>
 </html>
