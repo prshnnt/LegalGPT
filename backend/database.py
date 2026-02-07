@@ -20,12 +20,9 @@ engine = create_engine(
 # Create SessionLocal class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-
 def init_db():
     """Initialize database tables"""
     Base.metadata.create_all(bind=engine)
-
-#hgjfj
 
 def get_db() -> Session:
     """Dependency for getting database sessions"""

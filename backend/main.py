@@ -20,7 +20,6 @@ from models import User, Chat, Message
 from checkpointer import PostgresCheckpointer
 
 load_dotenv()
-
 # Initialize database on startup
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -40,7 +39,7 @@ app.add_middleware(
 
 # Initialize LLM
 llm = ChatOllama(
-    model="gpt-oss:120b-cloud",
+    model = "gpt-oss:120b-cloud",
     base_url="http://localhost:11434",
     temperature=0
 )
@@ -233,138 +232,138 @@ async def send_message(chat_id: int, message: MessageCreate, db: Session = Depen
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Agent streaming endpoint
-@app.post("/chats/{chat_id}/stream")
-async def stream_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_db)):
-    """Stream agent response for a message"""
-    import logging
-    import traceback
+# # Agent streaming endpoint
+# @app.post("/chats/{chat_id}/stream")
+# async def stream_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_db)):
+#     """Stream agent response for a message"""
+#     import logging
+#     import traceback
     
-    logging.basicConfig(level=logging.DEBUG)
-    logger = logging.getLogger(__name__)
+#     logging.basicConfig(level=logging.DEBUG)
+#     logger = logging.getLogger(__name__)
     
-    # Verify chat exists
-    chat = db.query(Chat).filter(Chat.id == chat_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+#     # Verify chat exists
+#     chat = db.query(Chat).filter(Chat.id == chat_id).first()
+#     if not chat:
+#         raise HTTPException(status_code=404, detail="Chat not found")
     
-    if message.chat_id != chat_id:
-        raise HTTPException(status_code=400, detail="Chat ID mismatch")
+#     if message.chat_id != chat_id:
+#         raise HTTPException(status_code=400, detail="Chat ID mismatch")
     
-    # Save user message
-    user_message = Message(chat_id=chat_id, role="user", content=message.content)
-    db.add(user_message)
-    db.commit()
+#     # Save user message
+#     user_message = Message(chat_id=chat_id, role="user", content=message.content)
+#     db.add(user_message)
+#     db.commit()
     
-    # Update chat timestamp
-    chat.updated_at = datetime.now()
-    db.commit()
+#     # Update chat timestamp
+#     chat.updated_at = datetime.now()
+#     db.commit()
     
-    async def generate_stream() -> AsyncGenerator[str, None]:
-        """Generate streaming response from agent"""
-        full_response = ""
+#     async def generate_stream() -> AsyncGenerator[str, None]:
+#         """Generate streaming response from agent"""
+#         full_response = ""
         
-        try:
-            logger.info(f"Starting stream for chat {chat_id}")
-            yield f"data: [STARTING]\n\n"
+#         try:
+#             logger.info(f"Starting stream for chat {chat_id}")
+#             yield f"data: [STARTING]\n\n"
             
-            # Create checkpointer with database connection
-            checkpointer = PostgresCheckpointer(db_session=db)
+#             # Create checkpointer with database connection
+#             checkpointer = PostgresCheckpointer(db_session=db)
             
-            # Create agent with database-backed checkpointer
-            agent_graph = create_deep_agent(
-                model=llm,
-                tools=[internet_search],
-                checkpointer=checkpointer
-            )
+#             # Create agent with database-backed checkpointer
+#             agent_graph = create_deep_agent(
+#                 model=llm,
+#                 tools=[internet_search],
+#                 checkpointer=checkpointer
+#             )
             
-            # Thread ID for conversation continuity
-            thread_id = f"chat_{chat_id}"
-            config = {"configurable": {"thread_id": thread_id}}
+#             # Thread ID for conversation continuity
+#             thread_id = f"chat_{chat_id}"
+#             config = {"configurable": {"thread_id": thread_id}}
             
-            logger.info(f"Agent created, starting stream...")
+#             logger.info(f"Agent created, starting stream...")
             
-            # Try astream_events (for newer langgraph)
-            try:
-                async for event in agent_graph.astream_events(
-                    {"messages": [HumanMessage(content=message.content)]},
-                    config=config,
-                    version="v2"
-                ):
-                    # Extract and yield streamed tokens
-                    if event["event"] == "on_chat_model_stream":
-                        chunk = event["data"]["chunk"]
-                        if hasattr(chunk, "content") and chunk.content:
-                            full_response += chunk.content
-                            yield f"data: {chunk.content}\n\n"
+#             # Try astream_events (for newer langgraph)
+#             try:
+#                 async for event in agent_graph.astream_events(
+#                     {"messages": [HumanMessage(content=message.content)]},
+#                     config=config,
+#                     version="v2"
+#                 ):
+#                     # Extract and yield streamed tokens
+#                     if event["event"] == "on_chat_model_stream":
+#                         chunk = event["data"]["chunk"]
+#                         if hasattr(chunk, "content") and chunk.content:
+#                             full_response += chunk.content
+#                             yield f"data: {chunk.content}\n\n"
                     
-                    # Handle tool calls
-                    elif event["event"] == "on_tool_start":
-                        tool_name = event["name"]
-                        yield f"data: [TOOL: {tool_name}]\n\n"
+#                     # Handle tool calls
+#                     elif event["event"] == "on_tool_start":
+#                         tool_name = event["name"]
+#                         yield f"data: [TOOL: {tool_name}]\n\n"
                     
-                    elif event["event"] == "on_tool_end":
-                        yield f"data: [TOOL COMPLETE]\n\n"
+#                     elif event["event"] == "on_tool_end":
+#                         yield f"data: [TOOL COMPLETE]\n\n"
                         
-            except AttributeError as e:
-                # Fallback to regular astream if astream_events is not available
-                logger.warning(f"astream_events not available, using astream: {e}")
-                yield f"data: [Using fallback streaming method]\n\n"
+#             except AttributeError as e:
+#                 # Fallback to regular astream if astream_events is not available
+#                 logger.warning(f"astream_events not available, using astream: {e}")
+#                 yield f"data: [Using fallback streaming method]\n\n"
                 
-                async for chunk in agent_graph.astream(
-                    {"messages": [HumanMessage(content=message.content)]},
-                    config=config
-                ):
-                    logger.debug(f"Chunk: {chunk}")
+#                 async for chunk in agent_graph.astream(
+#                     {"messages": [HumanMessage(content=message.content)]},
+#                     config=config
+#                 ):
+#                     logger.debug(f"Chunk: {chunk}")
                     
-                    if "messages" in chunk:
-                        for msg in chunk["messages"]:
-                            if hasattr(msg, "content"):
-                                content = msg.content
-                                full_response += content
-                                yield f"data: {content}\n\n"
+#                     if "messages" in chunk:
+#                         for msg in chunk["messages"]:
+#                             if hasattr(msg, "content"):
+#                                 content = msg.content
+#                                 full_response += content
+#                                 yield f"data: {content}\n\n"
             
-            # If no response generated, get final state
-            if not full_response:
-                logger.warning("No streaming response, invoking agent...")
-                result = await agent_graph.ainvoke(
-                    {"messages": [HumanMessage(content=message.content)]},
-                    config=config
-                )
+#             # If no response generated, get final state
+#             if not full_response:
+#                 logger.warning("No streaming response, invoking agent...")
+#                 result = await agent_graph.ainvoke(
+#                     {"messages": [HumanMessage(content=message.content)]},
+#                     config=config
+#                 )
                 
-                if "messages" in result:
-                    for msg in result["messages"]:
-                        if hasattr(msg, "content") and msg.content:
-                            full_response += msg.content
-                            yield f"data: {msg.content}\n\n"
+#                 if "messages" in result:
+#                     for msg in result["messages"]:
+#                         if hasattr(msg, "content") and msg.content:
+#                             full_response += msg.content
+#                             yield f"data: {msg.content}\n\n"
             
-            # Save assistant message to database
-            if full_response:
-                assistant_message = Message(
-                    chat_id=chat_id,
-                    role="assistant",
-                    content=full_response
-                )
-                db.add(assistant_message)
-                db.commit()
-                logger.info(f"Saved response: {len(full_response)} chars")
+#             # Save assistant message to database
+#             if full_response:
+#                 assistant_message = Message(
+#                     chat_id=chat_id,
+#                     role="assistant",
+#                     content=full_response
+#                 )
+#                 db.add(assistant_message)
+#                 db.commit()
+#                 logger.info(f"Saved response: {len(full_response)} chars")
             
-            yield "data: [DONE]\n\n"
+#             yield "data: [DONE]\n\n"
             
-        except Exception as e:
-            error_msg = f"{str(e)}\n{traceback.format_exc()}"
-            logger.error(f"Stream error: {error_msg}")
-            yield f"data: [ERROR: {str(e)}]\n\n"
+#         except Exception as e:
+#             error_msg = f"{str(e)}\n{traceback.format_exc()}"
+#             logger.error(f"Stream error: {error_msg}")
+#             yield f"data: [ERROR: {str(e)}]\n\n"
     
-    return StreamingResponse(
-        generate_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        }
-    )
+#     return StreamingResponse(
+#         generate_stream(),
+#         media_type="text/event-stream",
+#         headers={
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "X-Accel-Buffering": "no",
+#         }
+#     )
 
 
 # Health check
