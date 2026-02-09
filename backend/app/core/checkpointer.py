@@ -2,21 +2,21 @@
 from typing import Optional, Iterator, Tuple
 from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointMetadata
 import pickle
-from models import Checkpoint as CheckpointModel, Chat
+from app.models.database import ChatCheckpoint as CheckpointModel, ChatThread , ChatMessage
 from db.session import get_db_context
 
 
 class PostgresCheckpointSaver(BaseCheckpointSaver):
     """Checkpoint saver that stores checkpoints in PostgreSQL."""
     
-    def __init__(self, session_id: str):
+    def __init__(self, id: str):
         """Initialize the checkpoint saver.
         
         Args:
             session_id: The session/chat ID to associate checkpoints with
         """
         super().__init__()
-        self.session_id = session_id
+        self.id = id
     
     def put(
         self,
@@ -36,9 +36,9 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
         """
         with get_db_context() as db:
             # Get or create chat
-            chat = db.query(Chat).filter(Chat.session_id == self.session_id).first()
+            chat = db.query(ChatThread).filter(ChatThread.id == self.id).first()
             if not chat:
-                chat = Chat(session_id=self.session_id)
+                chat = ChatThread(id=self.id)
                 db.add(chat)
                 db.flush()
             

@@ -13,8 +13,6 @@ from langchain_core.messages import (
     ToolMessage,
     SystemMessage
 )
-from langchain_core.runnables.config import RunnableConfig
-
 # App Imports
 from app.core.config import settings
 from app.core.prompts import get_system_prompt
@@ -47,25 +45,6 @@ def llm_factory(**kwargs):
 
 
 
-def create_agent_graph():
-    """Create a basic DeepAgent without checkpointer.
-    
-    Returns:
-        Compiled DeepAgent graph
-    """
-    # Initialize Ollama model
-    model = llm_factory()
-    
-    # Create DeepAgent
-    agent = create_deep_agent(
-        model=model,
-        tools=tools,
-        system_prompt=SYSTEM_PROMPT,
-    )
-    
-    return agent
-
-
 # # Optional: Create subagents for specialized tasks
 # def create_research_subagent():
 #     """Create a specialized research subagent.
@@ -82,31 +61,6 @@ def create_agent_graph():
 #     }
 
 
-def get_agent_with_subagents(session_id: str):
-    """Get DeepAgent with subagents for complex task delegation.
-    
-    Args:
-        session_id: The session ID for checkpoint storage
-        
-    Returns:
-        Compiled DeepAgent graph with subagents
-    """
-    model = llm_factory()
-    
-    checkpointer = PostgresCheckpointSaver(session_id)
-    
-    # Create subagents for specialized tasks
-    subagents = []
-    
-    agent = create_deep_agent(
-        model=model,
-        tools=tools,
-        system_prompt=SYSTEM_PROMPT,
-        checkpointer=checkpointer,
-        subagents=subagents,  # Enable task delegation
-    )
-    
-    return agent
 
 
 class DeepAgentService:

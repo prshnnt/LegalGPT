@@ -10,7 +10,7 @@ from app.schemas.chat import (
 )
 from app.api.dependencies import get_current_user
 from app.services.agent import deep_agent_service
-from datetime import datetime
+from datetime import timezone as datetime
 
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -115,6 +115,8 @@ async def send_message(
         ChatThread.id == thread_id,
         ChatThread.user_id == current_user.id
     ).first()
+    thread.updated_at = datetime.utcnow()
+    db.commit()
     
     if not thread:
         raise HTTPException(
