@@ -2031,7 +2031,7 @@ requires-dist = [
     { name = "langchain", specifier = ">=1.2.7" },
     { name = "langchain-community", specifier = ">=0.4.1" },
     { name = "langchain-groq", specifier = ">=1.1.1" },
-    { name = "langchain-ollama", specifier = ">=1.0.1" },
+    { name = "langchain-ollama", specifier = ">=1.0.0" },
     { name = "langgraph", specifier = ">=1.0.7" },
     { name = "pandas", specifier = ">=3.0.0" },
     { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4" },

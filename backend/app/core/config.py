@@ -1,5 +1,8 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 
 class Settings(BaseSettings):
@@ -23,6 +26,11 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gpt-oss:120b-cloud"
+    GEMINI_API_KEY:str = "your-gemini-api-key"
+    GROQ_API_KEY:str = "your-groq-api-key"
+    DEEPSEEK_API_KEY:str = "your-deepseek-api-key"
+    TAVILY_API_KEY:str = "your-tavily-api-key"
+    ASSEMBLY_AI:str = "your-assembly-ai-api-key"
     
     # CORS
     CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8000"]

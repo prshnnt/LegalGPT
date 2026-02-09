@@ -16,93 +16,32 @@ from langchain_core.messages import (
 from langchain_core.runnables.config import RunnableConfig
 
 # App Imports
-from core.config import settings
-from core.prompts import get_system_prompt
-# Import the actual functions to be used as tools
-from tools.legal_tools import search_legal_documents, get_document_by_reference
-from models.database import ChatMessage, MessageRole, ChatCheckpoint
+from app.core.config import settings
+from app.core.prompts import get_system_prompt
+from app.models.database import ChatMessage, MessageRole, ChatCheckpoint
 from sqlalchemy.orm import Session
+from app.core.checkpointer import PostgresCheckpointSaver
+from app.tools import internet_search
+from app.prompts import get_system_prompt
+
+
 
 # Configure Logging
 logger = logging.getLogger(__name__)
 
-"""DeepAgent SDK integration with Ollama and custom tools."""
-from typing import List
-from deepagents import create_deep_agent
-from langchain.chat_models import init_chat_model
-from langchain_core.tools import tool
-from core.config import settings
-from core.checkpointer import PostgresCheckpointSaver
-
-
-# Define custom tools (you can add more)
-@tool
-def search_web(query: str) -> str:
-    """Search the web for information.
-    
-    Args:
-        query: The search query
-        
-    Returns:
-        Search results as a string
-    """
-    # This is a mock implementation
-    # Replace with actual web search API (e.g., Tavily, SerpAPI)
-    return f"Search results for '{query}': [Mock results - integrate actual search API here]"
-
-
-@tool
-def calculator(expression: str) -> str:
-    """Calculate mathematical expressions.
-    
-    Args:
-        expression: The mathematical expression to evaluate
-        
-    Returns:
-        The result of the calculation
-    """
-    try:
-        # Safe evaluation of mathematical expressions
-        # Only allow basic math operations
-        allowed_names = {"abs": abs, "round": round, "min": min, "max": max}
-        result = eval(expression, {"__builtins__": {}}, allowed_names)
-        return str(result)
-    except Exception as e:
-        return f"Error calculating: {str(e)}"
-
-
-@tool
-def get_weather(location: str) -> str:
-    """Get weather information for a location.
-    
-    Args:
-        location: The location to get weather for
-        
-    Returns:
-        Weather information
-    """
-    # Mock implementation - replace with actual weather API
-    return f"Weather in {location}: Sunny, 72°F (Mock data - integrate actual weather API)"
-
-
 # List of available tools
-tools = [search_web, calculator, get_weather]
-
+tools = [internet_search]
 
 # System prompt for the agent
-SYSTEM_PROMPT = """You are a helpful AI assistant with access to various tools.
+SYSTEM_PROMPT = get_system_prompt()
 
-You can:
-- Search the web for information
-- Perform calculations
-- Get weather information
-
-When a user asks you something:
-1. Think about what tools might help answer their question
-2. Use the appropriate tools to gather information
-3. Provide a clear, helpful response based on the tool results
-
-Be concise and accurate in your responses."""
+def llm_factory(**kwargs):
+    return ChatOllama(
+        model=settings.ollama_model,
+        base_url=settings.ollama_base_url,
+        temperature=0.0,
+        **kwargs
+    )
 
 
 def get_agent_with_checkpointer(session_id: str):
@@ -114,14 +53,8 @@ def get_agent_with_checkpointer(session_id: str):
     Returns:
         Compiled DeepAgent graph with checkpointer
     """
-    # Initialize Ollama model using init_chat_model
-    # Format: "provider:model_name"
-    model = init_chat_model(
-        f"ollama:{settings.ollama_model}",
-        base_url=settings.ollama_base_url,
-        temperature=0.7,
-    )
     
+    model = llm_factory()
     # Initialize PostgreSQL checkpointer
     checkpointer = PostgresCheckpointSaver(session_id)
     
@@ -145,11 +78,7 @@ def create_agent_graph():
         Compiled DeepAgent graph
     """
     # Initialize Ollama model
-    model = init_chat_model(
-        f"ollama:{settings.ollama_model}",
-        base_url=settings.ollama_base_url,
-        temperature=0.7,
-    )
+    model = llm_factory()
     
     # Create DeepAgent
     agent = create_deep_agent(
@@ -161,20 +90,20 @@ def create_agent_graph():
     return agent
 
 
-# Optional: Create subagents for specialized tasks
-def create_research_subagent():
-    """Create a specialized research subagent.
+# # Optional: Create subagents for specialized tasks
+# def create_research_subagent():
+#     """Create a specialized research subagent.
     
-    This is an example of how to create subagents in DeepAgent.
-    Subagents are useful for delegating specialized tasks.
-    """
-    return {
-        "name": "research-agent",
-        "description": "Specialized agent for in-depth research tasks",
-        "system_prompt": "You are a research specialist. Provide detailed, well-researched answers.",
-        "tools": [search_web],  # Only give this subagent access to search
-        # model can be optionally overridden here
-    }
+#     This is an example of how to create subagents in DeepAgent.
+#     Subagents are useful for delegating specialized tasks.
+#     """
+#     return {
+#         "name": "research-agent",
+#         "description": "Specialized agent for in-depth research tasks",
+#         "system_prompt": "You are a research specialist. Provide detailed, well-researched answers.",
+#         "tools": [search_web],  # Only give this subagent access to search
+#         # model can be optionally overridden here
+#     }
 
 
 def get_agent_with_subagents(session_id: str):
@@ -186,16 +115,12 @@ def get_agent_with_subagents(session_id: str):
     Returns:
         Compiled DeepAgent graph with subagents
     """
-    model = init_chat_model(
-        f"ollama:{settings.ollama_model}",
-        base_url=settings.ollama_base_url,
-        temperature=0.7,
-    )
+    model = llm_factory()
     
     checkpointer = PostgresCheckpointSaver(session_id)
     
     # Create subagents for specialized tasks
-    subagents = [create_research_subagent()]
+    subagents = []
     
     agent = create_deep_agent(
         model=model,
@@ -204,6 +129,7 @@ def get_agent_with_subagents(session_id: str):
         checkpointer=checkpointer,
         subagents=subagents,  # Enable task delegation
     )
+    agent.
     
     return agent
 
@@ -218,23 +144,10 @@ class DeepAgentService:
     """
 
     def __init__(self):
-        # Initialize the Ollama Chat Model
-        # We explicitly use Llama 3.1 for its robust tool-calling capabilities.
-        # The base_url is configurable via environment variables.
-        self.llm = ChatOllama(
-            model=getattr(settings, "OLLAMA_MODEL", "llama3.1"),
-            base_url=getattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434"),
-            temperature=0.0,  # Zero temperature for strictly factual legal reasoning
-            verbose=True,
-            # Ensure tool calling is enabled if supported by the library version
-        )
-
+        self.llm = llm_factory()
         # Define the tools list using the direct python functions.
         # create_deep_agent will automatically generate the JSON schemas from docstrings.
-        self.tools = [
-            search_legal_documents,
-            get_document_by_reference
-        ]
+        self.tools = tools
 
     def _create_agent_graph(self, system_prompt: str):
         """
@@ -277,18 +190,7 @@ class DeepAgentService:
             SSE formatted strings (event:... data:...).
         """
         
-        # 1. Prepare System Prompt
-        # Merges domain-specific legal instructions with the Agent's internal prompt.
-        system_prompt = get_system_prompt(include_memory, memory_content)
-
-        # 2. State Hydration
-        # Convert legacy dict-based history (from SQL) into LangChain Message objects.
-        # This hydrates the graph with the conversation context.
-        langchain_history = self._convert_history_to_messages(conversation_history)
         
-        # Append the new user input
-        langchain_history.append(HumanMessage(content=user_message))
-
         # 3. Graph Instantiation
         agent = self._create_agent_graph(system_prompt)
 
@@ -330,18 +232,13 @@ class DeepAgentService:
                             current_response_content += content
                             # Send standard content delta
                             yield self._format_sse("content_delta", {"text": content})
-                            # Send content block delta (Claude style) for robustness
-                            yield self._format_sse("content_block_delta", {
-                                "type": "text_delta", 
-                                "text": content
-                            })
 
                 # C. Tool Use Start
                 elif event_type == "on_tool_start":
                     # We only stream events for our defined legal tools.
                     # Internal tools like 'write_todos' can be hidden or shown depending on UX preference.
                     # Here we show them to demonstrate "Agentic Thinking".
-                    target_tools = ["search_legal_documents", "get_document_by_reference", "write_todos"]
+                    target_tools = ["search_legal_documents", "get_document_by_reference", "write_todos","internet_search"]
                     
                     if event_name in target_tools:
                         yield self._format_sse("tool_use_start", {
@@ -351,7 +248,7 @@ class DeepAgentService:
 
                 # D. Tool Use End
                 elif event_type == "on_tool_end":
-                    target_tools = ["search_legal_documents", "get_document_by_reference", "write_todos"]
+                    target_tools = ["search_legal_documents", "get_document_by_reference", "write_todos","internet_search"]
                     
                     if event_name in target_tools:
                         output = event_data.get("output")
@@ -404,7 +301,8 @@ class DeepAgentService:
         Converts the dict-based history (from SQL DB) into LangChain Message objects.
         This handles the mapping of 'human', 'ai', and 'tool' roles to their class equivalents.
         """
-        messages = List()
+        messages: List[BaseMessage] = []
+
         for msg in history:
             role = msg["role"]
             content = msg["content"]

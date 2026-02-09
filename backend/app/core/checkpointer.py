@@ -1,10 +1,9 @@
 """PostgreSQL-based checkpoint saver for LangGraph."""
-from typing import Optional, Iterator, Tuple, Any
+from typing import Optional, Iterator, Tuple
 from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointMetadata
-from sqlalchemy.orm import Session
 import pickle
 from models import Checkpoint as CheckpointModel, Chat
-from database import get_db_context
+from db.session import get_db_context
 
 
 class PostgresCheckpointSaver(BaseCheckpointSaver):

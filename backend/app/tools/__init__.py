@@ -1,0 +1,2 @@
+from legal_tools import search_legal_documents, get_document_by_reference
+from web_search_tool import internet_search
