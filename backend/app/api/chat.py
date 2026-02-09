@@ -10,6 +10,8 @@ from app.schemas.chat import (
 )
 from app.api.dependencies import get_current_user
 from app.services.agent import deep_agent_service
+from datetime import datetime
+
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -129,28 +131,12 @@ async def send_message(
     db.add(user_message)
     db.commit()
     
-    # Get conversation history
-    messages = db.query(ChatMessage).filter(
-        ChatMessage.thread_id == thread_id
-    ).order_by(ChatMessage.created_at).all()
-    
-    history = [
-        {
-            "role": msg.role.value,
-            "content": msg.content,
-            "tool_name": msg.tool_name,
-            "tool_data": msg.tool_data
-        }
-        for msg in messages[:-1]  # Exclude the just-added user message
-    ]
-    
     # Stream AI response
     async def generate():
         async for event in deep_agent_service.stream_chat_response(
-            user_message=message_data.content,
-            conversation_history=history,
-            db=db,
-            thread_id=thread_id
+            message_content=message_data.content,
+            session_id=str(thread_id),
+            db=db
         ):
             yield event
     

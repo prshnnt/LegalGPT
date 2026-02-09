@@ -1,10 +1,13 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Optional, List, Any
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
 
-# Auth Schemas
+# =========================
+# Auth Schemas (auth router)
+# =========================
+
 class UserLogin(BaseModel):
     username: str
     password: str
@@ -24,12 +27,15 @@ class UserResponse(BaseModel):
     id: int
     username: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
 
+# =========================
 # Chat Thread Schemas
+# =========================
+
 class ChatThreadCreate(BaseModel):
     title: Optional[str] = "New Chat"
 
@@ -39,12 +45,15 @@ class ChatThreadResponse(BaseModel):
     title: str
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
 
+# =========================
 # Message Schemas
+# =========================
+
 class MessageRoleEnum(str, Enum):
     HUMAN = "human"
     AI = "ai"
@@ -52,6 +61,10 @@ class MessageRoleEnum(str, Enum):
 
 
 class ChatMessageCreate(BaseModel):
+    """
+    Incoming user message.
+    Role is ALWAYS HUMAN in the router.
+    """
     content: str
 
 
@@ -60,9 +73,9 @@ class ChatMessageResponse(BaseModel):
     role: MessageRoleEnum
     content: str
     tool_name: Optional[str] = None
-    tool_data: Optional[dict] = None
+    tool_data: Optional[Dict[str, Any]] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -70,12 +83,16 @@ class ChatMessageResponse(BaseModel):
 class ChatHistoryResponse(BaseModel):
     thread: ChatThreadResponse
     messages: List[ChatMessageResponse]
-    
+
     class Config:
         from_attributes = True
 
 
-# Streaming Response Events
+# =========================
+# Streaming Schemas
+# (LEFT UNCHANGED ON PURPOSE)
+# =========================
+
 class StreamEventType(str, Enum):
     MESSAGE_START = "message_start"
     CONTENT_BLOCK_START = "content_block_start"
@@ -101,4 +118,3 @@ class StreamChunk(BaseModel):
     tool_output: Optional[str] = Field(None, description="Tool output for tool_result chunks")
     checkpointer_metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
     session_id: Optional[str] = Field(None, description="Session ID")
-    
