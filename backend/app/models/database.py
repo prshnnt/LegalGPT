@@ -20,7 +20,7 @@ class User(Base):
 class ChatThread(Base):
     __tablename__ = "chat_threads"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True,autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String(255), default="New Chat")
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -63,10 +63,11 @@ class ChatCheckpoint(Base):
     id = Column(Integer, primary_key=True, index=True)
     thread_id = Column(Integer, ForeignKey("chat_threads.id"), nullable=False)
     checkpoint_ns = Column(String(255),default="",index=True)
+    checkpoint_id = Column(String(255), nullable=False)
     parent_checkpoint_id = Column(String(255),nullable=True)
     checkpoint_data = Column(JSON, nullable=False)
     checkpoint_metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
     
     # Relationships
     thread = relationship("ChatThread", back_populates="checkpoints")

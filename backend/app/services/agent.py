@@ -18,13 +18,12 @@ from langchain_core.runnables.config import RunnableConfig
 # App Imports
 from app.core.config import settings
 from app.core.prompts import get_system_prompt
-from app.models.database import ChatMessage, MessageRole, ChatCheckpoint
 from sqlalchemy.orm import Session
 from app.core.checkpointer import PostgresCheckpointSaver
 from app.tools import internet_search
 from app.prompts import get_system_prompt
 from app.schemas.chat import StreamChunk
-from app.models.database import ChatMessage, MessageRole
+from app.models.services import ChatService, MessageService
 from datetime import datetime
 
 
@@ -201,7 +200,7 @@ class DeepAgentService:
                 version="v1"
             ):
                 event_type = event.get("event")
-                event_name = event.get("name", "")
+                # event_name = event.get("name", "")
                 
                 # Handle LLM token streaming
                 if event_type == "on_chat_model_stream":
@@ -278,45 +277,6 @@ class DeepAgentService:
                 metadata={"timestamp": datetime.utcnow().isoformat()}
             )
             yield f"data: {error_chunk.model_dump_json()}\n\n"
-
-    
-
-    def _save_tool_interaction(self, db: Session, thread_id: int, name: str, input_data: Any, output_data: Any):
-        """
-        Persists a tool execution event to the relational database.
-        """
-        # Ensure data is JSON serializable
-        tool_data = input_data if isinstance(input_data, dict) else {"input": input_data}
-        
-        # Normalize output content
-        content_str = str(output_data)
-        if isinstance(output_data, (dict, list)):
-            content_str = json.dumps(output_data)
-            
-        tool_message = ChatMessage(
-            thread_id=thread_id,
-            role=MessageRole.TOOL,
-            content=content_str,
-            tool_name=name,
-            tool_data=tool_data
-        )
-        db.add(tool_message)
-        db.commit()
-
-    def _save_checkpoint(self, db: Session, thread_id: int, messages: List):
-        """
-        Saves the conversation checkpoint to the database.
-        This enables the 'DeepAgent' to resume complex multi-turn plans if persistence is enabled.
-        """
-        from langchain_core.messages import messages_to_dict
-        checkpoint_data = {"messages": messages_to_dict(messages)}
-        
-        checkpoint = ChatCheckpoint(
-            thread_id=thread_id,
-            checkpoint_data=checkpoint_data
-        )
-        db.add(checkpoint)
-        db.commit()
 
     def _format_sse(self, event_type: str, data: Dict) -> str:
         """
