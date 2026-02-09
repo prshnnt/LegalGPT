@@ -23,6 +23,9 @@ from sqlalchemy.orm import Session
 from app.core.checkpointer import PostgresCheckpointSaver
 from app.tools import internet_search
 from app.prompts import get_system_prompt
+from app.schemas.chat import StreamChunk
+from app.models.database import ChatMessage, MessageRole
+from datetime import datetime
 
 
 
@@ -43,32 +46,6 @@ def llm_factory(**kwargs):
         **kwargs
     )
 
-
-def get_agent_with_checkpointer(session_id: str):
-    """Get DeepAgent with PostgreSQL checkpointer and Ollama model.
-    
-    Args:
-        session_id: The session ID for checkpoint storage
-        
-    Returns:
-        Compiled DeepAgent graph with checkpointer
-    """
-    
-    model = llm_factory()
-    # Initialize PostgreSQL checkpointer
-    checkpointer = PostgresCheckpointSaver(session_id)
-    
-    # Create DeepAgent with custom configuration
-    agent = create_deep_agent(
-        model=model,
-        tools=tools,
-        system_prompt=SYSTEM_PROMPT,
-        checkpointer=checkpointer,
-        # DeepAgent comes with built-in planning and file system tools
-        # These are automatically included unless disabled
-    )
-    
-    return agent
 
 
 def create_agent_graph():
@@ -129,7 +106,6 @@ def get_agent_with_subagents(session_id: str):
         checkpointer=checkpointer,
         subagents=subagents,  # Enable task delegation
     )
-    agent.
     
     return agent
 
@@ -149,7 +125,7 @@ class DeepAgentService:
         # create_deep_agent will automatically generate the JSON schemas from docstrings.
         self.tools = tools
 
-    def _create_agent_graph(self, system_prompt: str):
+    def _create_deep_agent(self, system_prompt: str,session_id: str,subagents: Optional[List[Dict]] = None):
         """
         Creates a new Deep Agent graph instance with the configured LLM and tools.
         
@@ -157,171 +133,153 @@ class DeepAgentService:
         tools unless explicitly disabled. We retain them to allow recursive planning
         for complex legal research tasks.
         """
+        checkpointer = PostgresCheckpointSaver(session_id)
+        
         return create_deep_agent(
             model=self.llm,
             tools=self.tools,
             system_prompt=system_prompt,
+            checkpointer=checkpointer,
+            subagents=subagents
         )
 
     async def stream_chat_response(
-        self,
-        user_message: str,
-        conversation_history: List,
-        db: Session,
-        thread_id: int,
-        include_memory: bool = False,
-        memory_content: str = ""
-    ) -> AsyncGenerator[str, None]:
-        """
-        Stream chat response from Deep Agent (Ollama) with tool use support.
-        
-        This method acts as an adapter, translating LangGraph v2 events into the
-        Server-Sent Events (SSE) format expected by the LegalGPT frontend.
+            self,
+            message_content: str,
+            session_id: str,
+            db: Session
+        ) -> AsyncGenerator[str, None]:
+        """Stream chat response with stage notifications using DeepAgent SDK.
         
         Args:
-            user_message: The current query from the user.
-            conversation_history: List of dicts representing past chat context.
-            db: Database session for persisting tool outputs and final answers.
-            thread_id: ID of the current chat thread.
-            include_memory: Flag to include long-term memory context.
-            memory_content: Actual text of the memory.
-        
-        Yields:
-            SSE formatted strings (event:... data:...).
-        """
-        
-        
-        # 3. Graph Instantiation
-        agent = self._create_agent_graph(system_prompt)
-
-        # 4. Stream Execution
-        # We use astream_events(version="v2") to access granular execution steps.
-        # This allows us to intercept tool calls and streaming tokens in real-time.
-        
-        current_response_content = ""
-        has_sent_message_start = False
-        
-        # Define the input payload for the graph
-        inputs = {"messages": langchain_history}
-        
-        try:
-            async for event in agent.astream_events(inputs, version="v2"):
-                event_type = event["event"]
-                event_data = event["data"]
-                event_name = event.get("name", "")
-
-                # --- EVENT MAPPING LOGIC ---
-
-                # A. Message Start
-                # We lazily send this on the first token to ensure we don't send it 
-                # during internal silent thought processes.
-                if event_type == "on_chat_model_start" and not has_sent_message_start:
-                    # Filter out internal summarization or planning steps if they appear as separate models
-                    pass 
-
-                # B. Content Delta (Streaming Text)
-                elif event_type == "on_chat_model_stream":
-                    chunk = event_data.get("chunk")
-                    if chunk and isinstance(chunk, AIMessage) and chunk.content:
-                        content = chunk.content
-                        if isinstance(content, str) and content:
-                            if not has_sent_message_start:
-                                yield self._format_sse("message_start", {"role": "assistant"})
-                                has_sent_message_start = True
-                            
-                            current_response_content += content
-                            # Send standard content delta
-                            yield self._format_sse("content_delta", {"text": content})
-
-                # C. Tool Use Start
-                elif event_type == "on_tool_start":
-                    # We only stream events for our defined legal tools.
-                    # Internal tools like 'write_todos' can be hidden or shown depending on UX preference.
-                    # Here we show them to demonstrate "Agentic Thinking".
-                    target_tools = ["search_legal_documents", "get_document_by_reference", "write_todos","internet_search"]
-                    
-                    if event_name in target_tools:
-                        yield self._format_sse("tool_use_start", {
-                            "tool_name": event_name,
-                            "input": event_data.get("input")
-                        })
-
-                # D. Tool Use End
-                elif event_type == "on_tool_end":
-                    target_tools = ["search_legal_documents", "get_document_by_reference", "write_todos","internet_search"]
-                    
-                    if event_name in target_tools:
-                        output = event_data.get("output")
-                        
-                        # Normalize output (handle ToolMessage objects vs raw strings)
-                        result_data = output
-                        if hasattr(output, "content"):
-                            result_data = output.content
-                        
-                        # PERSISTENCE: Save Tool Execution to SQL DB
-                        # This maintains the history log for future turns.
-                        # We skip 'write_todos' for persistence if it's considered internal thought,
-                        # but saving it creates a better audit trail.
-                        self._save_tool_interaction(
-                            db, thread_id, event_name, 
-                            event_data.get("input"), result_data
-                        )
-
-                        yield self._format_sse("tool_use_end", {
-                            "tool_name": event_name,
-                            "result": result_data
-                        })
-
-            # 5. Finalize and Save AI Response
-            # Once the stream concludes, the aggregated content is the final answer.
-            if current_response_content:
-                ai_message = ChatMessage(
-                    thread_id=thread_id,
-                    role=MessageRole.AI,
-                    content=current_response_content
-                )
-                db.add(ai_message)
-                db.commit()
-
-            yield self._format_sse("message_end", {
-                "content": current_response_content
-            })
-
-            # 6. Save Checkpoint
-            # While we rely on SQL for history, saving the graph checkpoint allows
-            # for advanced features like "Rewind" or "Fork" in the future.
-            self._save_checkpoint(db, thread_id, langchain_history)
-
-        except Exception as e:
-            logger.error(f"Deep Agent Stream Error: {str(e)}", exc_info=True)
-            yield self._format_sse("error", {"message": f"Agent Error: {str(e)}"})
-
-    def _convert_history_to_messages(self, history: List) -> List:
-        """
-        Converts the dict-based history (from SQL DB) into LangChain Message objects.
-        This handles the mapping of 'human', 'ai', and 'tool' roles to their class equivalents.
-        """
-        messages: List[BaseMessage] = []
-
-        for msg in history:
-            role = msg["role"]
-            content = msg["content"]
+            message_content: User message
+            session_id: Chat session ID
+            db: Database session
             
-            if role == "human":
-                messages.append(HumanMessage(content=content))
-            elif role == "ai":
-                messages.append(AIMessage(content=content))
-            elif role == "tool":
-                # Reconstruct ToolMessage
-                # The SQL schema stores tool_name and tool_data.
-                # We need a tool_call_id to satisfy LangChain's strict schema.
-                # If historical data lacks an ID, we synthesize one.
-                messages.append(ToolMessage(
-                    content=content,
-                    tool_call_id=msg.get("tool_call_id", f"call_{msg.get('id', 'unknown')}"),
-                    name=msg.get("tool_name", "unknown_tool")
-                ))
-        return messages
+        Yields:
+            JSON-encoded StreamChunk objects
+        """
+        try:
+            # Get or create chat
+            chat = ChatService.get_or_create_chat(db=db, session_id=session_id)
+            
+            # Save user message
+            MessageService.create_message(
+                db=db,
+                chat_id=chat.id,
+                role="user",
+                content=message_content
+            )
+            
+            # Send start event
+            start_chunk = StreamChunk(
+                type="start",
+                session_id=session_id,
+                metadata={"timestamp": datetime.utcnow().isoformat()}
+            )
+            yield f"data: {start_chunk.model_dump_json()}\n\n"
+            
+            # Get DeepAgent with checkpointer
+            agent = self._create_deep_agent(SYSTEM_PROMPT,session_id)
+            
+            # Prepare config
+            config = {
+                "configurable": {
+                    "thread_id": session_id,
+                    "checkpoint_ns": ""
+                }
+            }
+            
+            # Stream agent response
+            full_response = ""
+            tool_calls_made = []
+            
+            # DeepAgent uses astream_events for streaming
+            async for event in agent.astream_events(
+                {"messages": [HumanMessage(content=message_content)]},
+                config=config,
+                version="v1"
+            ):
+                event_type = event.get("event")
+                event_name = event.get("name", "")
+                
+                # Handle LLM token streaming
+                if event_type == "on_chat_model_stream":
+                    chunk = event.get("data", {}).get("chunk", {})
+                    if hasattr(chunk, "content") and chunk.content:
+                        full_response += chunk.content
+                        content_chunk = StreamChunk(
+                            type="content",
+                            content=chunk.content,
+                            session_id=session_id
+                        )
+                        yield f"data: {content_chunk.model_dump_json()}\n\n"
+                
+                # Handle tool calls - DeepAgent includes built-in planning and file tools
+                elif event_type == "on_tool_start":
+                    tool_name = event.get("name", "unknown")
+                    tool_input = event.get("data", {}).get("input", {})
+                    
+                    tool_calls_made.append({
+                        "tool": tool_name,
+                        "input": tool_input
+                    })
+                    
+                    tool_call_chunk = StreamChunk(
+                        type="tool_call",
+                        tool_name=tool_name,
+                        tool_input=tool_input,
+                        session_id=session_id,
+                        metadata={"timestamp": datetime.utcnow().isoformat()}
+                    )
+                    yield f"data: {tool_call_chunk.model_dump_json()}\n\n"
+                
+                # Handle tool results
+                elif event_type == "on_tool_end":
+                    tool_name = event.get("name", "unknown")
+                    tool_output = str(event.get("data", {}).get("output", ""))
+                    
+                    tool_result_chunk = StreamChunk(
+                        type="tool_result",
+                        tool_name=tool_name,
+                        tool_output=tool_output,
+                        session_id=session_id,
+                        metadata={"timestamp": datetime.utcnow().isoformat()}
+                    )
+                    yield f"data: {tool_result_chunk.model_dump_json()}\n\n"
+            
+            # Save assistant message
+            if full_response:
+                MessageService.create_message(
+                    db=db,
+                    chat_id=chat.id,
+                    role="assistant",
+                    content=full_response,
+                    tool_calls=tool_calls_made if tool_calls_made else None
+                )
+            
+            # Send end event
+            end_chunk = StreamChunk(
+                type="end",
+                session_id=session_id,
+                metadata={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "tools_used": len(tool_calls_made)
+                }
+            )
+            yield f"data: {end_chunk.model_dump_json()}\n\n"
+            
+        except Exception as e:
+            # Send error event
+            error_chunk = StreamChunk(
+                type="error",
+                content=str(e),
+                session_id=session_id,
+                metadata={"timestamp": datetime.utcnow().isoformat()}
+            )
+            yield f"data: {error_chunk.model_dump_json()}\n\n"
+
+    
 
     def _save_tool_interaction(self, db: Session, thread_id: int, name: str, input_data: Any, output_data: Any):
         """
