@@ -18,11 +18,12 @@ from app.core.config import settings
 from app.core.prompts import get_system_prompt
 from sqlalchemy.orm import Session
 from app.core.checkpointer import PostgresCheckpointSaver
+from app.models.database import ChatThread, MessageRole
 from app.tools import internet_search
 from app.prompts import get_system_prompt
 from app.schemas.chat import StreamChunk
 from app.models.services import ChatService, MessageService
-from datetime import timezone as datetime
+from datetime import  datetime
 
 
 
@@ -79,7 +80,7 @@ class DeepAgentService:
         # create_deep_agent will automatically generate the JSON schemas from docstrings.
         self.tools = tools
 
-    def _create_deep_agent(self, system_prompt: str,session_id: str,subagents: Optional[List[Dict]] = None):
+    def _create_deep_agent(self, system_prompt: str,thread_id: str,subagents: Optional[List[Dict]] = None):
         """
         Creates a new Deep Agent graph instance with the configured LLM and tools.
         
@@ -87,7 +88,7 @@ class DeepAgentService:
         tools unless explicitly disabled. We retain them to allow recursive planning
         for complex legal research tasks.
         """
-        checkpointer = PostgresCheckpointSaver(session_id)
+        checkpointer = PostgresCheckpointSaver(thread_id)
         
         return create_deep_agent(
             model=self.llm,
@@ -100,7 +101,7 @@ class DeepAgentService:
     async def stream_chat_response(
             self,
             message_content: str,
-            session_id: str,
+            thread:ChatThread,
             db: Session
         ) -> AsyncGenerator[str, None]:
         """Stream chat response with stage notifications using DeepAgent SDK.
@@ -115,31 +116,32 @@ class DeepAgentService:
         """
         try:
             # Get or create chat
-            chat = ChatService.get_or_create_chat(db=db, session_id=session_id)
+            chat = thread
             
             # Save user message
-            MessageService.create_message(
-                db=db,
-                chat_id=chat.id,
-                role="user",
-                content=message_content
-            )
+            # MessageService.create_message(
+            #     db=db,
+            #     thread_id=thread.id,
+            #     role=MessageRole.HUMAN,
+            #     content=message_content
+            # )
             
             # Send start event
             start_chunk = StreamChunk(
                 type="start",
-                session_id=session_id,
-                metadata={"timestamp": datetime.utcnow().isoformat()}
+                session_id=thread.id,
+                content=message_content,
+                checkpointer_metadata={"timestamp": datetime.utcnow().isoformat()}
             )
             yield f"data: {start_chunk.model_dump_json()}\n\n"
             
             # Get DeepAgent with checkpointer
-            agent = self._create_deep_agent(SYSTEM_PROMPT,session_id)
+            agent = self._create_deep_agent(SYSTEM_PROMPT,thread.id)
             
             # Prepare config
             config = {
                 "configurable": {
-                    "thread_id": session_id,
+                    "thread_id": thread.id,
                     "checkpoint_ns": ""
                 }
             }
@@ -165,7 +167,7 @@ class DeepAgentService:
                         content_chunk = StreamChunk(
                             type="content",
                             content=chunk.content,
-                            session_id=session_id
+                            session_id=thread.id
                         )
                         yield f"data: {content_chunk.model_dump_json()}\n\n"
                 
@@ -183,8 +185,8 @@ class DeepAgentService:
                         type="tool_call",
                         tool_name=tool_name,
                         tool_input=tool_input,
-                        session_id=session_id,
-                        metadata={"timestamp": datetime.utcnow().isoformat()}
+                        session_id=thread.id,
+                        checkpointer_metadata={"timestamp": datetime.utcnow().isoformat()}
                     )
                     yield f"data: {tool_call_chunk.model_dump_json()}\n\n"
                 
@@ -197,8 +199,8 @@ class DeepAgentService:
                         type="tool_result",
                         tool_name=tool_name,
                         tool_output=tool_output,
-                        session_id=session_id,
-                        metadata={"timestamp": datetime.utcnow().isoformat()}
+                        session_id=thread.id,
+                        checkpointer_metadata={"timestamp": datetime.utcnow().isoformat()}
                     )
                     yield f"data: {tool_result_chunk.model_dump_json()}\n\n"
             
@@ -206,8 +208,8 @@ class DeepAgentService:
             if full_response:
                 MessageService.create_message(
                     db=db,
-                    chat_id=chat.id,
-                    role="assistant",
+                    thread_id=thread.id,
+                    role=MessageRole.AI,
                     content=full_response,
                     tool_calls=tool_calls_made if tool_calls_made else None
                 )
@@ -215,8 +217,8 @@ class DeepAgentService:
             # Send end event
             end_chunk = StreamChunk(
                 type="end",
-                session_id=session_id,
-                metadata={
+                session_id=thread.id,
+                checkpointer_metadata={
                     "timestamp": datetime.utcnow().isoformat(),
                     "tools_used": len(tool_calls_made)
                 }
@@ -225,11 +227,12 @@ class DeepAgentService:
             
         except Exception as e:
             # Send error event
+            # print(f"Error in stream_chat_response: {e}")
             error_chunk = StreamChunk(
                 type="error",
                 content=str(e),
-                session_id=session_id,
-                metadata={"timestamp": datetime.utcnow().isoformat()}
+                session_id=thread.id,
+                checkpointer_metadata={"timestamp": datetime.utcnow().isoformat()}
             )
             yield f"data: {error_chunk.model_dump_json()}\n\n"
 

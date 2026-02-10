@@ -29,7 +29,6 @@ class ChatService:
         db.commit()
         db.refresh(chat)
         return chat
-
     @staticmethod
     def get_chat_by_id(
         db: Session,

@@ -4,13 +4,14 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.db.session import get_db
 from app.models.database import User, ChatThread, ChatMessage, MessageRole
+from app.models.services import ChatService
 from app.schemas.chat import (
     ChatThreadCreate, ChatThreadResponse, ChatMessageCreate,
     ChatMessageResponse, ChatHistoryResponse
 )
 from app.api.dependencies import get_current_user
 from app.services.agent import deep_agent_service
-from datetime import timezone as datetime
+from datetime import datetime
 
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -23,15 +24,8 @@ def create_thread(
     db: Session = Depends(get_db)
 ):
     """Create a new chat thread."""
-    new_thread = ChatThread(
-        user_id=current_user.id,
-        title=thread_data.title
-    )
-    db.add(new_thread)
-    db.commit()
-    db.refresh(new_thread)
-    
-    return new_thread
+    return ChatService.create_chat(db=db, user=current_user, title=thread_data.title)
+
 
 
 @router.get("/threads", response_model=List[ChatThreadResponse])
@@ -137,7 +131,7 @@ async def send_message(
     async def generate():
         async for event in deep_agent_service.stream_chat_response(
             message_content=message_data.content,
-            session_id=str(thread_id),
+            thread=thread,
             db=db
         ):
             yield event

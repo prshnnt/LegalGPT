@@ -117,4 +117,4 @@ class StreamChunk(BaseModel):
     tool_input: Optional[Dict[str, Any]] = Field(None, description="Tool input for tool_call chunks")
     tool_output: Optional[str] = Field(None, description="Tool output for tool_result chunks")
     checkpointer_metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
-    session_id: Optional[str] = Field(None, description="Session ID")
+    session_id: Optional[str|int] = Field(None, description="Session ID")
