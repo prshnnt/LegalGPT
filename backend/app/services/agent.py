@@ -22,7 +22,8 @@ from app.tools import internet_search
 from app.prompts import get_system_prompt
 from app.schemas.chat import StreamChunk
 from app.models.services import ChatService, MessageService
-from datetime import datetime
+from datetime import timezone as datetime
+
 
 
 
