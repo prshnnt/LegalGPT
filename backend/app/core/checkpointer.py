@@ -8,6 +8,8 @@ from langgraph.checkpoint.base import (
     CheckpointMetadata,
     CheckpointTuple,
 )
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
 from app.models.database import ChatCheckpoint
 from app.db.session import get_db_context
 
@@ -15,18 +17,85 @@ from app.db.session import get_db_context
 class PostgresCheckpointSaver(BaseCheckpointSaver):
     """Checkpoint saver that stores LangGraph checkpoints in PostgreSQL.
 
-    Implements BOTH sync and async interfaces because DeepAgent uses
-    astream_events (async), which calls aget_tuple / aput / alist.
-    Without async methods the base class has no fallback and silently
-    fails, causing the immediate 'error' SSE event you were seeing.
+    Uses JsonPlusSerializer to handle LangChain message types (HumanMessage,
+    AIMessage, etc.) which are not natively JSON-serializable.
     """
+
+    serde = JsonPlusSerializer()
 
     def __init__(self, thread_id: int):
         super().__init__()
         self.thread_id = thread_id
 
     # ------------------------------------------------------------------
-    # Sync interface (required by BaseCheckpointSaver)
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _serialize(self, obj: dict) -> dict:
+        """Serialize a checkpoint/metadata dict to a plain JSON-safe dict."""
+        # dumps() returns (type_str, bytes) — encode bytes to latin-1 str so
+        # Postgres JSON column can store it, then wrap with the type tag so we
+        # can round-trip it on the way out.
+        serialized = {}
+        for key, value in obj.items():
+            type_str, data_bytes = self.serde.dumps_typed(value)
+            serialized[key] = {
+                "__type__": type_str,
+                "__data__": data_bytes.decode("latin-1"),
+            }
+        return serialized
+
+    def _deserialize(self, obj: dict) -> dict:
+        """Deserialize a checkpoint/metadata dict back to Python objects."""
+        deserialized = {}
+        for key, value in obj.items():
+            if isinstance(value, dict) and "__type__" in value:
+                data_bytes = value["__data__"].encode("latin-1")
+                deserialized[key] = self.serde.loads_typed(
+                    (value["__type__"], data_bytes)
+                )
+            else:
+                # Fallback: value stored without wrapper (e.g. plain scalars)
+                deserialized[key] = value
+        return deserialized
+
+    def _serialize_checkpoint(self, checkpoint: Checkpoint) -> dict:
+        """
+        Serialize a full checkpoint dict.
+        channel_values contains LangChain messages; everything else is plain.
+        We serialize the whole checkpoint as one blob via dumps_typed so we
+        don't have to recurse into every nested field ourselves.
+        """
+        type_str, data_bytes = self.serde.dumps_typed(checkpoint)
+        return {
+            "__type__": type_str,
+            "__data__": data_bytes.decode("latin-1"),
+        }
+
+    def _deserialize_checkpoint(self, stored: dict) -> Checkpoint:
+        """Deserialize a checkpoint blob back to a Checkpoint dict."""
+        if isinstance(stored, dict) and "__type__" in stored:
+            data_bytes = stored["__data__"].encode("latin-1")
+            return self.serde.loads_typed((stored["__type__"], data_bytes))
+        # Already a plain dict (e.g. stored before this fix was applied)
+        return stored
+
+    def _serialize_metadata(self, metadata: dict) -> dict:
+        """Serialize checkpoint metadata (usually plain scalars, but safe to wrap)."""
+        type_str, data_bytes = self.serde.dumps_typed(metadata)
+        return {
+            "__type__": type_str,
+            "__data__": data_bytes.decode("latin-1"),
+        }
+
+    def _deserialize_metadata(self, stored: dict) -> dict:
+        if isinstance(stored, dict) and "__type__" in stored:
+            data_bytes = stored["__data__"].encode("latin-1")
+            return self.serde.loads_typed((stored["__type__"], data_bytes))
+        return stored or {}
+
+    # ------------------------------------------------------------------
+    # Sync interface
     # ------------------------------------------------------------------
 
     def put(
@@ -34,21 +103,24 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
         config: dict,
         checkpoint: Checkpoint,
         metadata: CheckpointMetadata,
-        new_versions: dict,          # ← required 4th arg in current LangGraph
+        new_versions: dict,
     ) -> dict:
         """Persist a checkpoint synchronously."""
         checkpoint_ns = config.get("configurable", {}).get("checkpoint_ns", "")
+
         with get_db_context() as db:
             record = ChatCheckpoint(
                 thread_id=self.thread_id,
                 checkpoint_ns=checkpoint_ns,
                 checkpoint_id=checkpoint["id"],
                 parent_checkpoint_id=checkpoint.get("parent_id"),
-                checkpoint_data=checkpoint,
-                checkpoint_metadata=metadata or {},
+                # ← Serialize to plain JSON-safe dicts before storing
+                checkpoint_data=self._serialize_checkpoint(checkpoint),
+                checkpoint_metadata=self._serialize_metadata(dict(metadata or {})),
             )
             db.add(record)
             db.commit()
+
         return {
             **config,
             "configurable": {
@@ -77,7 +149,6 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
             if not record:
                 return None
 
-            # Build the config that points at this specific checkpoint
             checkpoint_config = {
                 **config,
                 "configurable": {
@@ -98,8 +169,9 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
 
             return CheckpointTuple(
                 config=checkpoint_config,
-                checkpoint=record.checkpoint_data,
-                metadata=record.checkpoint_metadata or {},
+                # ← Deserialize back to Python objects on the way out
+                checkpoint=self._deserialize_checkpoint(record.checkpoint_data),
+                metadata=self._deserialize_metadata(record.checkpoint_metadata),
                 parent_config=parent_config,
             )
 
@@ -145,13 +217,13 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
                     }
                 yield CheckpointTuple(
                     config=checkpoint_config,
-                    checkpoint=record.checkpoint_data,
-                    metadata=record.checkpoint_metadata or {},
+                    checkpoint=self._deserialize_checkpoint(record.checkpoint_data),
+                    metadata=self._deserialize_metadata(record.checkpoint_metadata),
                     parent_config=parent_config,
                 )
 
     # ------------------------------------------------------------------
-    # Async interface — REQUIRED when using astream / astream_events
+    # Async interface — required when using astream / astream_events
     # ------------------------------------------------------------------
 
     async def aput(
@@ -161,13 +233,11 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
         metadata: CheckpointMetadata,
         new_versions: dict,
     ) -> dict:
-        """Persist a checkpoint asynchronously (runs sync version in thread)."""
         return await asyncio.get_event_loop().run_in_executor(
             None, self.put, config, checkpoint, metadata, new_versions
         )
 
     async def aget_tuple(self, config: dict) -> Optional[CheckpointTuple]:
-        """Retrieve checkpoint asynchronously (runs sync version in thread)."""
         return await asyncio.get_event_loop().run_in_executor(
             None, self.get_tuple, config
         )
@@ -180,8 +250,6 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
         before: Optional[dict] = None,
         limit: Optional[int] = None,
     ) -> AsyncIterator[CheckpointTuple]:
-        """List checkpoints asynchronously."""
-        # Collect sync results in an executor, then yield them
         tuples = await asyncio.get_event_loop().run_in_executor(
             None,
             lambda: list(self.list(config, filter=filter, before=before, limit=limit)),
