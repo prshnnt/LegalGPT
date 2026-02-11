@@ -290,7 +290,7 @@ export default function App() {
           />
 
           {/* Main Chat Area */}
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 md:ml-72">
             {/* Header */}
             <ChatHeader
               threadTitle={threads.find(t => t.id === activeThreadId)?.title || 'LegalGPT'}
@@ -307,15 +307,11 @@ export default function App() {
                     {messages.map((message) => (
                       <ChatMessage key={message.id} message={message} />
                     ))}
-                    {/* {isStreaming && messages[messages.length - 1]?.isStreaming && (
-                      <ThinkingIndicator stages={[]} isActive={true} />
-                    )} */}
                   </>
                 )}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-
             {/* Input Area */}
             <MessageInput
               onSend={handleSendMessage}
@@ -323,6 +319,7 @@ export default function App() {
               webSearchEnabled={webSearchEnabled}
               onWebSearchToggle={() => setWebSearchEnabled(!webSearchEnabled)}
             />
+
           </div>
         </div>
       )}

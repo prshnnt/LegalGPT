@@ -15,15 +15,15 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-export function Sidebar({ 
-  threads, 
-  activeThreadId, 
-  onThreadSelect, 
+export function Sidebar({
+  threads,
+  activeThreadId,
+  onThreadSelect,
   onThreadDelete,
   onNewChat,
   onLogout,
   isOpen,
-  onToggle 
+  onToggle
 }: SidebarProps) {
   const [hoveredThreadId, setHoveredThreadId] = useState<string | number | null>(null);
 
@@ -31,7 +31,7 @@ export function Sidebar({
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
+
     if (days === 0) return 'Today';
     if (days === 1) return 'Yesterday';
     if (days < 7) return `${days} days ago`;
@@ -78,9 +78,8 @@ export function Sidebar({
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col transition-transform duration-200 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col transition-transform duration-200 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
@@ -116,7 +115,7 @@ export function Sidebar({
           <div className="space-y-6 py-2">
             {Object.entries(groupedThreads).map(([group, groupThreads]) => {
               if (groupThreads.length === 0) return null;
-              
+
               return (
                 <div key={group}>
                   <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-500 uppercase tracking-wide mb-2 px-2">
@@ -132,11 +131,10 @@ export function Sidebar({
                       >
                         <button
                           onClick={() => onThreadSelect(thread.id)}
-                          className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors ${
-                            activeThreadId === thread.id
+                          className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors ${activeThreadId === thread.id
                               ? 'bg-gray-100 dark:bg-gray-800'
                               : 'hover:bg-gray-50 dark:hover:bg-gray-900'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-start gap-2">
                             <MessageSquare className="w-4 h-4 mt-0.5 text-gray-500 flex-shrink-0" />
