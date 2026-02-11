@@ -1,6 +1,8 @@
 import { Message } from '../types/chat';
 import { User, Scale, Paperclip } from 'lucide-react';
 import { ThinkingIndicator } from './ThinkingIndicator';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatMessageProps {
   message: Message;
@@ -58,9 +60,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
         {message.content && (
           <div className="prose prose-sm dark:prose-invert max-w-none">
-            <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-7">
+            {/* <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-7">
               {message.content}
-            </p>
+            </p> */}
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
           </div>
         )}
       </div>

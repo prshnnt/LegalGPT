@@ -307,9 +307,9 @@ export default function App() {
                     {messages.map((message) => (
                       <ChatMessage key={message.id} message={message} />
                     ))}
-                    {isStreaming && messages[messages.length - 1]?.isStreaming && (
+                    {/* {isStreaming && messages[messages.length - 1]?.isStreaming && (
                       <ThinkingIndicator stages={[]} isActive={true} />
-                    )}
+                    )} */}
                   </>
                 )}
                 <div ref={messagesEndRef} />
