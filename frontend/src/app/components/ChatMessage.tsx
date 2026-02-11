@@ -7,7 +7,7 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
-  const isUser = message.role === 'user';
+  const isUser = message.role === 'user' || message.role === 'human';
 
   return (
     <div className={`flex gap-4 p-6 ${isUser ? 'bg-white dark:bg-gray-950' : 'bg-gray-50 dark:bg-gray-900'}`}>

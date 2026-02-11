@@ -1,7 +1,8 @@
 import { Scale, Globe, FileText, BookOpen } from 'lucide-react';
+import { Attachment } from '../types/chat';
 
 interface EmptyStateProps {
-  onExampleClick: (text: string) => void;
+  onExampleClick: (text: string, attachments: Attachment[]) => void;
 }
 
 export function EmptyState({ onExampleClick }: EmptyStateProps) {
@@ -47,7 +48,7 @@ export function EmptyState({ onExampleClick }: EmptyStateProps) {
           {examples.map((example, index) => (
             <button
               key={index}
-              onClick={() => onExampleClick(example.prompt)}
+              onClick={() => onExampleClick(example.prompt, [])}
               className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-amber-500 dark:hover:border-amber-500 hover:bg-gray-50 dark:hover:bg-gray-900 transition-all text-left group"
             >
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 group-hover:bg-amber-100 dark:group-hover:bg-amber-900/30 flex items-center justify-center transition-colors">

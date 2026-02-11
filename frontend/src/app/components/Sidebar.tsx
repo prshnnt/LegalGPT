@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { MessageSquare, Plus, Menu, X, Scale } from 'lucide-react';
+import { MessageSquare, Plus, Menu, X, Scale, Trash2, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import { ChatThread } from '../types/chat';
 
 interface SidebarProps {
   threads: ChatThread[];
-  activeThreadId: string | null;
-  onThreadSelect: (threadId: string) => void;
+  activeThreadId: string | number | null;
+  onThreadSelect: (threadId: string | number) => void;
+  onThreadDelete?: (threadId: string | number) => void;
   onNewChat: () => void;
+  onLogout?: () => void;
   isOpen: boolean;
   onToggle: () => void;
 }
@@ -17,10 +19,14 @@ export function Sidebar({
   threads, 
   activeThreadId, 
   onThreadSelect, 
+  onThreadDelete,
   onNewChat,
+  onLogout,
   isOpen,
   onToggle 
 }: SidebarProps) {
+  const [hoveredThreadId, setHoveredThreadId] = useState<string | number | null>(null);
+
   const formatDate = (date: Date) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -41,7 +47,7 @@ export function Sidebar({
     };
 
     threads.forEach(thread => {
-      const date = formatDate(thread.timestamp);
+      const date = thread.timestamp ? formatDate(thread.timestamp) : 'Older';
       if (date === 'Today') groups['Today'].push(thread);
       else if (date === 'Yesterday') groups['Yesterday'].push(thread);
       else if (date.includes('days ago')) groups['Previous 7 Days'].push(thread);
@@ -52,6 +58,13 @@ export function Sidebar({
   };
 
   const groupedThreads = groupThreadsByDate(threads);
+
+  const handleDeleteThread = (e: React.MouseEvent, threadId: string | number) => {
+    e.stopPropagation();
+    if (onThreadDelete) {
+      onThreadDelete(threadId);
+    }
+  };
 
   return (
     <>
@@ -111,27 +124,44 @@ export function Sidebar({
                   </h3>
                   <div className="space-y-1">
                     {groupThreads.map((thread) => (
-                      <button
+                      <div
                         key={thread.id}
-                        onClick={() => onThreadSelect(thread.id)}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors ${
-                          activeThreadId === thread.id
-                            ? 'bg-gray-100 dark:bg-gray-800'
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-900'
-                        }`}
+                        className="relative group"
+                        onMouseEnter={() => setHoveredThreadId(thread.id)}
+                        onMouseLeave={() => setHoveredThreadId(null)}
                       >
-                        <div className="flex items-start gap-2">
-                          <MessageSquare className="w-4 h-4 mt-0.5 text-gray-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {thread.title}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-500 truncate mt-0.5">
-                              {thread.preview}
-                            </p>
+                        <button
+                          onClick={() => onThreadSelect(thread.id)}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors ${
+                            activeThreadId === thread.id
+                              ? 'bg-gray-100 dark:bg-gray-800'
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-900'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <MessageSquare className="w-4 h-4 mt-0.5 text-gray-500 flex-shrink-0" />
+                            <div className="flex-1 min-w-0 pr-6">
+                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                {thread.title}
+                              </p>
+                              {thread.preview && (
+                                <p className="text-xs text-gray-500 dark:text-gray-500 truncate mt-0.5">
+                                  {thread.preview}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                        {onThreadDelete && hoveredThreadId === thread.id && (
+                          <button
+                            onClick={(e) => handleDeleteThread(e, thread.id)}
+                            className="absolute right-2 top-2 p-1.5 rounded-md bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            title="Delete thread"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -141,10 +171,24 @@ export function Sidebar({
         </ScrollArea>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-          <p className="text-xs text-gray-500 dark:text-gray-500 text-center">
-            LegalGPT for Law Students
-          </p>
+        <div className="border-t border-gray-200 dark:border-gray-800">
+          {onLogout && (
+            <div className="p-3">
+              <Button
+                onClick={onLogout}
+                variant="ghost"
+                className="w-full justify-start gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </Button>
+            </div>
+          )}
+          <div className="p-4">
+            <p className="text-xs text-gray-500 dark:text-gray-500 text-center">
+              LegalGPT for Law Students
+            </p>
+          </div>
         </div>
       </aside>
     </>
