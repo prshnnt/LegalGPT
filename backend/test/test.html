@@ -260,9 +260,15 @@ async function selectThread(id) {
     addMessage(m.role === "human" ? "user" : "ai", m.content)
   );
 }
-
 async function sendMessage(text) {
   addMessage("user", text);
+
+  // Create empty AI message bubble
+  const aiDiv = document.createElement("div");
+  aiDiv.className = "message ai";
+  aiDiv.innerHTML = `<div class="bubble"></div>`;
+  messages.appendChild(aiDiv);
+  const bubble = aiDiv.querySelector(".bubble");
 
   const res = await fetch(`${API}/chat/threads/${currentThread}/messages`, {
     method: "POST",
@@ -271,18 +277,61 @@ async function sendMessage(text) {
   });
 
   const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let aiText = "";
+  const decoder = new TextDecoder("utf-8");
 
-  addMessage("ai", "");
+  let buffer = "";
+  let aiText = "";
+  let toolText = "";
+
 
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    aiText += decoder.decode(value);
-    messages.lastChild.querySelector(".bubble").innerText = aiText;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE events end with double newline
+    const events = buffer.split("\n\n");
+    buffer = events.pop(); // keep incomplete chunk
+
+    for (const event of events) {
+      const line = event.trim();
+
+      if (!line.startsWith("data:")) continue;
+
+      try {
+        const json = JSON.parse(line.replace(/^data:\s*/, ""));
+        console.log(json)
+
+        switch (json.type) {
+          case "content":
+            aiText += json.content || "";
+            bubble.innerText = aiText;
+            messages.scrollTop = messages.scrollHeight;
+            break;
+
+          case "error":
+            bubble.innerText += `\n\n⚠️ Error generating response.${json.content}`;
+            break;
+          case "tool_call":
+            toolText += json.tool_name || ""
+            bubble.innerText += toolText;
+            messages.scrollTop = messages.scrollHeight;
+            break;
+          case "tool_result":
+            toolText += "tool_ended\n" || ""
+            bubble.innerText += toolText;
+            messages.scrollTop = messages.scrollHeight;
+            break;
+          // ignore start/end/tool events
+        }
+      } catch (e) {
+        console.error("Invalid SSE chunk", e, line);
+      }
+    }
   }
 }
+
 
 /* ---------- EVENTS ---------- */
 newThreadBtn.onclick = async () => {
