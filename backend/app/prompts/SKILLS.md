@@ -1,8 +1,8 @@
-# SKILL.md — NYAYA AI SKILLS & CAPABILITIES
+# SKILL.md — LegalGPT (Indian Legal Assistant) SKILLS & CAPABILITIES
 
 ## Overview
 
-This file defines the skills and operational patterns for **Nyaya AI**, an Indian legal assistant built on the DeepAgent SDK (LangChain). It guides the agent on how to use its tools effectively, how to structure legal reasoning, and how to handle edge cases.
+This file defines the skills and operational patterns for **LegalGPT**, an Indian legal assistant built on the DeepAgent SDK (LangChain). It guides the agent on how to use its tools effectively, how to structure legal reasoning, and how to handle edge cases.
 
 ---
 
