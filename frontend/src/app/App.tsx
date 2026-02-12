@@ -7,7 +7,7 @@ import { MessageInput } from './components/MessageInput';
 import { EmptyState } from './components/EmptyState';
 import { AuthModal } from './components/AuthModal';
 import { ThinkingIndicator } from './components/ThinkingIndicator';
-import { Menu } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { ScrollArea } from './components/ui/scroll-area';
 import { 
@@ -35,6 +35,7 @@ export default function App() {
   // UI state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Chat state
   const [threads, setThreads] = useState<ChatThread[]>([]);
@@ -59,6 +60,31 @@ export default function App() {
     }
     setIsCheckingAuth(false);
   }, []);
+
+  // Initialize theme
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+      setIsDarkMode(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    setIsDarkMode(prev => {
+      const newMode = !prev;
+      if (newMode) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+      return newMode;
+    });
+  };
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -276,7 +302,7 @@ export default function App() {
       <AuthModal isOpen={showAuthModal} onSuccess={handleAuthSuccess} />
       
       {isAuthenticated && (
-        <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="flex h-dvh bg-gray-50 dark:bg-gray-950 ">
           {/* Sidebar */}
           <Sidebar
             threads={threads}
@@ -290,12 +316,24 @@ export default function App() {
           />
 
           {/* Main Chat Area */}
-          <div className="flex-1 flex flex-col min-w-0 md:ml-72">
+          <div className="flex-1 flex flex-col min-w-0 overflow-auto">
             {/* Header */}
-            <ChatHeader
-              threadTitle={threads.find(t => t.id === activeThreadId)?.title || 'LegalGPT'}
-              onMenuClick={() => setIsSidebarOpen(true)}
-            />
+            <div className="relative">
+              <ChatHeader
+                threadTitle={threads.find(t => t.id === activeThreadId)?.title || 'LegalGPT'}
+                onMenuClick={() => setIsSidebarOpen(true)}
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleTheme}
+                  className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+                >
+                  {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                </Button>
+              </div>
+            </div>
 
             {/* Messages Area */}
             <ScrollArea className="flex-1">
@@ -309,7 +347,7 @@ export default function App() {
                     ))}
                   </>
                 )}
-                <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} className="h-25" />
               </div>
             </ScrollArea>
             {/* Input Area */}
