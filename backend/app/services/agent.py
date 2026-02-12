@@ -13,7 +13,6 @@ from langchain_core.messages import (
     SystemMessage
 )
 from app.core.config import settings
-from app.core.prompts import get_system_prompt
 from sqlalchemy.orm import Session
 from app.core.checkpointer import PostgresCheckpointSaver
 from app.models.database import ChatThread, MessageRole

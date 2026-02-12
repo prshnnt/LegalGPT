@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY:str = "your-deepseek-api-key"
     TAVILY_API_KEY:str = "your-tavily-api-key"
     ASSEMBLY_AI:str = "your-assembly-ai-api-key"
+    PRIZMA_API_KEY:str = "your-prisma-api-key"
     
     # CORS
     CORS_ORIGINS: list = ["*"]
