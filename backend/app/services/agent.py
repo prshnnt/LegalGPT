@@ -5,7 +5,6 @@ from typing import AsyncGenerator, Dict, List, Any, Optional
 
 from deepagents import create_deep_agent
 from langchain_ollama import ChatOllama
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
