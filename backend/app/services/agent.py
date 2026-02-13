@@ -5,6 +5,7 @@ from typing import AsyncGenerator, Dict, List, Any, Optional
 
 from deepagents import create_deep_agent
 from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
@@ -29,7 +30,15 @@ SYSTEM_PROMPT = get_system_prompt()
 
 
 def llm_factory(**kwargs):
+    # return ChatOpenAI(
+    #     api_key=settings.OLLAMA_API_KEY,
+    #     model=settings.ollama_model,
+    #     base_url=settings.ollama_base_url,
+    #     temperature=0.0,
+    #     **kwargs
+    # )
     return ChatOllama(
+        # client_kwargs={'Authorization': 'Bearer ' + settings.OLLAMA_API_KEY},
         model=settings.ollama_model,
         base_url=settings.ollama_base_url,
         temperature=0.0,

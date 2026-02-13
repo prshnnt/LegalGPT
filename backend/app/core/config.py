@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     TAVILY_API_KEY:str = "your-tavily-api-key"
     ASSEMBLY_AI:str = "your-assembly-ai-api-key"
     PRIZMA_API_KEY:str = "your-prisma-api-key"
+    OLLAMA_API_KEY:str = "your-ollama-api-key"
     
     # CORS
     CORS_ORIGINS: list = ["*"]
