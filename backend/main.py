@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.session import init_db
 from app.api import auth, chat
+import os
 
 # Create FastAPI app
 app = FastAPI(
@@ -49,4 +50,4 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0")
+    uvicorn.run(app, host="0.0.0.0",port=os.environ.get("PORT", 8000))
