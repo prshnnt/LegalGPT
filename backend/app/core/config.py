@@ -24,8 +24,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     
     # Ollama
-    ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "gpt-oss:120b-cloud"
+    ollama_base_url: str = "https://api.ollama.com"
+    ollama_model: str = "gpt-oss:120b"
+    
     GEMINI_API_KEY:str = "your-gemini-api-key"
     GROQ_API_KEY:str = "your-groq-api-key"
     DEEPSEEK_API_KEY:str = "your-deepseek-api-key"
