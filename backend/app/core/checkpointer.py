@@ -1,5 +1,6 @@
 """PostgreSQL-based checkpoint saver for LangGraph."""
 import asyncio
+import logging
 from typing import Optional, Iterator, AsyncIterator, Sequence, Tuple, Any
 
 from langgraph.checkpoint.base import (
@@ -12,6 +13,8 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 from app.models.database import ChatCheckpoint
 from app.db.session import get_db_context
+
+logger = logging.getLogger(__name__)
 
 
 class PostgresCheckpointSaver(BaseCheckpointSaver):
@@ -123,8 +126,9 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
                     existing["__pending_writes__"] = serialized_writes
                     record.checkpoint_metadata = self._serialize_metadata(existing)
                     db.commit()
-        except Exception:
+        except Exception as e:
             # put_writes failing should never crash the graph
+            logger.warning(f"Failed to persist writes: {e}")
             pass
 
     def get_tuple(self, config: dict) -> Optional[CheckpointTuple]:
