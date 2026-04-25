@@ -14,7 +14,7 @@ from langchain_core.messages import (
 )
 from app.core.config import settings
 from sqlalchemy.orm import Session
-from app.core.checkpointer import PostgresCheckpointSaver
+from langgraph.checkpoint.memory import InMemorySaver
 from app.models.database import ChatThread, MessageRole
 from app.tools import internet_search
 from app.prompts import get_system_prompt
@@ -57,7 +57,7 @@ class DeepAgentService:
         thread_id: str,
         subagents: Optional[List[Dict]] = None
     ):
-        checkpointer = PostgresCheckpointSaver(thread_id)
+        checkpointer = InMemorySaver()
         return create_deep_agent(
             model=self.llm,
             tools=self.tools,
