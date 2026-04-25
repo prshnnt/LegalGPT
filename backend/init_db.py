@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from app.db.session import Base, engine, SessionLocal
-from app.models.database import User, ChatThread, ChatMessage, ChatCheckpoint
+from app.models.database import User, ChatThread, ChatMessage
 from app.core.auth import get_password_hash
 
 

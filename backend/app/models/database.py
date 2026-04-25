@@ -29,7 +29,6 @@ class ChatThread(Base):
     # Relationships
     user = relationship("User", back_populates="chat_threads")
     messages = relationship("ChatMessage", back_populates="thread", cascade="all, delete-orphan", order_by="ChatMessage.created_at")
-    checkpoints = relationship("ChatCheckpoint", back_populates="thread", cascade="all, delete-orphan")
 
 
 class MessageRole(enum.Enum):
@@ -54,20 +53,3 @@ class ChatMessage(Base):
     
     # Relationships
     thread = relationship("ChatThread", back_populates="messages")
-
-
-class ChatCheckpoint(Base):
-    """Store LangGraph checkpoints for conversation state"""
-    __tablename__ = "chat_checkpoints"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    thread_id = Column(Integer, ForeignKey("chat_threads.id"), nullable=False)
-    checkpoint_ns = Column(String(255),default="",index=True)
-    checkpoint_id = Column(String(255), nullable=False)
-    parent_checkpoint_id = Column(String(255),nullable=True)
-    checkpoint_data = Column(JSON, nullable=False)
-    checkpoint_metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
-    
-    # Relationships
-    thread = relationship("ChatThread", back_populates="checkpoints")
