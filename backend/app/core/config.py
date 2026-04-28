@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "https://api.ollama.com"
     ollama_model: str = "gpt-oss:120b"
+    ollama_request_timeout: int = 300
     
     GEMINI_API_KEY:str = "your-gemini-api-key"
     GROQ_API_KEY:str = "your-groq-api-key"
