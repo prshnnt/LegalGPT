@@ -104,24 +104,24 @@ class DeepAgentService:
                     config=config,
                     version="v1"
                 ):
-                event_type = event.get("event")
+                    event_type = event.get("event")
 
-                if event_type == "on_chat_model_stream":
-                    chunk = event.get("data", {}).get("chunk", {})
-                    if chunk and hasattr(chunk, "content") and chunk.content:
-                        full_response += chunk.content
-                        yield f"data: {StreamChunk(type='content', content=chunk.content, session_id=thread.id).model_dump_json()}\n\n"
+                    if event_type == "on_chat_model_stream":
+                        chunk = event.get("data", {}).get("chunk", {})
+                        if chunk and hasattr(chunk, "content") and chunk.content:
+                            full_response += chunk.content
+                            yield f"data: {StreamChunk(type='content', content=chunk.content, session_id=thread.id).model_dump_json()}\n\n"
 
-                elif event_type == "on_tool_start":
-                    tool_name = event.get("name", "unknown")
-                    tool_input = event.get("data", {}).get("input", {})
-                    tool_calls_made.append({"tool": tool_name, "input": tool_input})
-                    yield f"data: {StreamChunk(type='tool_call', tool_name=tool_name, tool_input=tool_input, session_id=thread.id, checkpointer_metadata={'timestamp': datetime.now(timezone.utc).isoformat()}).model_dump_json()}\n\n"
+                    elif event_type == "on_tool_start":
+                        tool_name = event.get("name", "unknown")
+                        tool_input = event.get("data", {}).get("input", {})
+                        tool_calls_made.append({"tool": tool_name, "input": tool_input})
+                        yield f"data: {StreamChunk(type='tool_call', tool_name=tool_name, tool_input=tool_input, session_id=thread.id, checkpointer_metadata={'timestamp': datetime.now(timezone.utc).isoformat()}).model_dump_json()}\n\n"
 
-                elif event_type == "on_tool_end":
-                    tool_name = event.get("name", "unknown")
-                    tool_output = str(event.get("data", {}).get("output", ""))
-                    yield f"data: {StreamChunk(type='tool_result', tool_name=tool_name, tool_output=tool_output, session_id=thread.id, checkpointer_metadata={'timestamp': datetime.now(timezone.utc).isoformat()}).model_dump_json()}\n\n"
+                    elif event_type == "on_tool_end":
+                        tool_name = event.get("name", "unknown")
+                        tool_output = str(event.get("data", {}).get("output", ""))
+                        yield f"data: {StreamChunk(type='tool_result', tool_name=tool_name, tool_output=tool_output, session_id=thread.id, checkpointer_metadata={'timestamp': datetime.now(timezone.utc).isoformat()}).model_dump_json()}\n\n"
 
         except Exception as e:
             logger.exception("Error during agent stream for thread %s", thread.id)
