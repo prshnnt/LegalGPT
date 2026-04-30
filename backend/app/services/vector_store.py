@@ -27,7 +27,7 @@ class VectorStore:
         query: str,
         n_results: int = 5,
         filter_metadata: Optional[Dict] = None
-    ) -> List[Dict]:
+    ) -> List[Dict[str, any]]:
         """
         Search for relevant legal documents based on query.
 
@@ -123,5 +123,5 @@ class VectorStore:
             return False
 
 
-# Singleton instance
+# Global singleton instance
 vector_store = VectorStore()
