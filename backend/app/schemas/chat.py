@@ -9,6 +9,7 @@ from enum import Enum
 # =========================
 
 class UserLogin(BaseModel):
+    # user authentication schema
     username: str
     password: str
 

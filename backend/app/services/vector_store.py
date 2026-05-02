@@ -1,4 +1,5 @@
 import chromadb
+# client for persistent storage
 from chromadb.config import Settings as ChromaSettings
 from typing import List, Dict, Optional
 import logging
