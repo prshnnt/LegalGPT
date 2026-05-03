@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+logger.setLevel(logging.INFO)
 # router defined below
 from sqlalchemy.orm import Session
 from app.db.session import get_db

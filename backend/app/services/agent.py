@@ -22,7 +22,7 @@ from app.schemas.chat import StreamChunk
 from app.models.services import ChatService, MessageService
 from datetime import datetime, timezone
 
-logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 tools = [internet_search]
 SYSTEM_PROMPT = get_system_prompt()

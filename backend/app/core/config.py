@@ -1,4 +1,5 @@
-from pydantic_settings import BaseSettings
+import logging
+logger.setLevel(logging.INFO)
 from dotenv import load_dotenv
 
 load_dotenv()
