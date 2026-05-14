@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-logger.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 tavily_client = TavilyClient()
 
 

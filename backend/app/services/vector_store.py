@@ -5,7 +5,7 @@ from typing import List, Dict, Optional
 import logging
 from app.core.config import settings
 
-logger.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class VectorStore:
