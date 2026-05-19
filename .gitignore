@@ -59,3 +59,4 @@ dmypy.json
 .pyre/
 .pytype/
 cython_debug/
+Untitled-*.py
