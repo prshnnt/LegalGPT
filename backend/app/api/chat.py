@@ -109,14 +109,15 @@ async def send_message(
         ChatThread.id == thread_id,
         ChatThread.user_id == current_user.id
     ).first()
-    thread.updated_at = datetime.utcnow()
-    db.commit()
     
     if not thread:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Chat thread not found"
         )
+    
+    thread.updated_at = datetime.utcnow()
+    db.commit()
     
     # Save user message
     user_message = ChatMessage(
