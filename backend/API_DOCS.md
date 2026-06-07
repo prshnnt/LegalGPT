@@ -161,8 +161,8 @@ Authorization: Bearer <token>
     {
       "id": 2,
       "role": "tool",
-      "content": "{\"documents\": [...]}",
-      "tool_name": "search_legal_documents",
+      "content": "{\"results\": [...]}",
+      "tool_name": "internet_search",
       "tool_data": {"query": "Section 420 IPC"},
       "created_at": "2024-02-08T10:01:05Z"
     },
@@ -207,10 +207,10 @@ event: message_start
 data: {"role": "assistant"}
 
 event: tool_use_start
-data: {"tool_name": "search_legal_documents"}
+data: {"tool_name": "internet_search"}
 
 event: tool_use_end
-data: {"tool_name": "search_legal_documents", "result": {...}}
+data: {"tool_name": "internet_search", "result": {...}}
 
 event: content_delta
 data: {"text": "Section"}
@@ -362,33 +362,21 @@ Currently not implemented. Recommended for production:
 
 ## Tools Available to AI
 
-### 1. search_legal_documents
+### 1. internet_search
 
-Searches legal documents in ChromaDB vector store.
+Search the internet for information using Tavily.
 
 **Parameters:**
-- `query` (string, required): Search query
-- `max_results` (integer, optional): Max results (default: 5)
+- `query` (string, required): The search query string.
+- `max_results` (integer, optional): The maximum number of search results to return (default: 5).
+- `topic` (string, optional): The topic category of search, either "general", "news", or "finance" (default: "general").
+- `include_raw_content` (boolean, optional): Whether to include raw content in results (default: false).
 
 **Example:**
 ```json
 {
-  "query": "Section 420 IPC fraud cases",
+  "query": "provisions under Section 420 IPC",
   "max_results": 5
-}
-```
-
-### 2. get_document_by_reference
-
-Retrieves specific document by ID.
-
-**Parameters:**
-- `doc_id` (string, required): Document identifier
-
-**Example:**
-```json
-{
-  "doc_id": "ipc_420"
 }
 ```
 

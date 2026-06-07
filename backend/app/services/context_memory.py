@@ -44,7 +44,7 @@ def create_or_update_context_memory(
         if create_data.value is not None:
             existing.value = create_data.value
         if create_data.metadata is not None:
-            existing.metadata = create_data.metadata
+            existing.meta_data = create_data.metadata
         if create_data.thread_id is not None:
             existing.thread_id = create_data.thread_id
         if create_data.user_id is not None:
@@ -55,7 +55,7 @@ def create_or_update_context_memory(
         new_memory = ContextMemory(
             key=create_data.key,
             value=create_data.value,
-            metadata=create_data.metadata,
+            meta_data=create_data.metadata,
             thread_id=create_data.thread_id,
             user_id=create_data.user_id,
         )

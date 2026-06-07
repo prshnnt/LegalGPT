@@ -207,7 +207,8 @@ class ChatCheckpoint:
 - **vector_store.py**: ChromaDB interface for document retrieval
 
 ### Tools Layer (`app/tools/`)
-- **legal_tools.py**: Tool definitions and execution functions
+- **web_search_tool.py**: Internet search tool definition (using Tavily)
+- **context_memory_tool.py**: Context memory tools for storing, loading, and listing conversational context in DB
 
 ## Security Considerations
 

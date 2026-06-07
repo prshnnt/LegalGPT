@@ -63,7 +63,7 @@ class ContextMemory(Base):
     id = Column(Integer, primary_key=True, index=True)
     key = Column(String(255), unique=True, index=True, nullable=False)
     value = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    meta_data = Column("metadata", JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

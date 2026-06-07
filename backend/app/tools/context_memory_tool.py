@@ -2,6 +2,7 @@ import logging
 from typing import Optional, Dict, Any, List
 from langchain_core.tools import tool
 
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
@@ -110,7 +111,7 @@ def load_context_memory(
                     "found": True,
                     "key": memory.key,
                     "value": memory.value,
-                    "metadata": memory.metadata,
+                    "metadata": memory.meta_data,
                     "created_at": memory.created_at.isoformat() if memory.created_at else None,
                     "updated_at": memory.updated_at.isoformat() if memory.updated_at else None,
                 }
@@ -240,7 +241,7 @@ def list_context_memories(
                         "id": m.id,
                         "key": m.key,
                         "value": m.value,
-                        "metadata": m.metadata,
+                        "metadata": m.meta_data,
                         "created_at": m.created_at.isoformat() if m.created_at else None,
                         "updated_at": m.updated_at.isoformat() if m.updated_at else None,
                         "thread_id": m.thread_id,
