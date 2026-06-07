@@ -143,8 +143,6 @@ class DeepAgentService:
                     thread_id=thread.id,
                     role=MessageRole.AI,
                     content=full_response,
-                    # Remove this kwarg if create_message doesn't accept it
-                    # tool_calls=tool_calls_made if tool_calls_made else None
                 )
         except Exception as db_err:
             # Log but don't surface to client — the stream itself succeeded
