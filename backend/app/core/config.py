@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # Database
-    DATABASE_URL: str = "postgresql://postgres:halua12345@localhost:5432/deepagent_db"
+    DATABASE_URL: str = "sqlite://"
     
     # ChromaDB
     CHROMA_PERSIST_DIR: str = "./chroma_db"

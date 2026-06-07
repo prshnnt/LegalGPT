@@ -5,13 +5,22 @@ from contextlib import contextmanager
 from app.core.config import settings
 
 # Create database engine
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-    echo=False  # Set to True for SQL logging during development
-)
+if settings.DATABASE_URL.startswith("sqlite"):
+    from sqlalchemy.pool import StaticPool
+    engine = create_engine(
+        settings.DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False
+    )
+else:
+    engine = create_engine(
+        settings.DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        echo=False  # Set to True for SQL logging during development
+    )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
@@ -37,4 +46,5 @@ def get_db():
 
 def init_db():
     """Initialize database tables."""
+    from app.models.database import User, ChatThread, ChatMessage, ContextMemory
     Base.metadata.create_all(bind=engine)

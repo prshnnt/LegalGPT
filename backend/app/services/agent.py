@@ -24,7 +24,16 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-tools = [internet_search]
+from deepagents import SubAgent
+
+researcher_agent = SubAgent(
+    name="researcher",
+    description="A specialist researcher agent that searches the internet to gather facts, case laws, statutes, and general information on a given query.",
+    system_prompt="You are an expert researcher agent. Search the internet using the tools available to you to find accurate, up-to-date information regarding the query. Synthesize your findings into a clear, detailed, and factual summary. Do not make up any facts or cases; rely only on what the tools return.",
+    tools=[internet_search]
+)
+
+tools = []
 SYSTEM_PROMPT = get_system_prompt()
 
 
@@ -59,6 +68,8 @@ class DeepAgentService:
     ):
         checkpointer = InMemorySaver()
         try:
+            if subagents is None:
+                subagents = [researcher_agent]
             return create_deep_agent(
                 model=self.llm,
                 tools=self.tools,
