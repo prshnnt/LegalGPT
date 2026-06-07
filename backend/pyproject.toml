@@ -5,7 +5,6 @@ description = "LegalGPT API - Indian Legal System AI Assistant"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "asyncpg>=0.31.0",
     "bcrypt==4.0.1",
     "chromadb>=1.5.0",
     "deepagents>=0.3.11",
@@ -15,7 +14,6 @@ dependencies = [
     "langchain-ollama>=1.0.0",
     "langgraph>=1.0.7",
     "passlib[bcrypt]>=1.7.4",
-    "psycopg2-binary>=2.9.11",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
     "python-dotenv>=1.2.1",
