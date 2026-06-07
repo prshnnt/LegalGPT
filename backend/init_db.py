@@ -18,7 +18,7 @@ def init_database():
     """Create all database tables."""
     print("Creating database tables...")
     Base.metadata.create_all(bind=engine)
-    print("✓ Database tables created successfully!")
+    print("[SUCCESS] Database tables created successfully!")
 
 
 def create_sample_user():
@@ -28,7 +28,7 @@ def create_sample_user():
         # Check if user already exists
         existing_user = db.query(User).filter(User.username == "demo").first()
         if existing_user:
-            print("✓ Sample user 'demo' already exists")
+            print("[OK] Sample user 'demo' already exists")
             return
         
         # Create sample user
@@ -38,11 +38,11 @@ def create_sample_user():
         )
         db.add(sample_user)
         db.commit()
-        print("✓ Sample user created:")
+        print("[SUCCESS] Sample user created:")
         print("  Username: demo")
         print("  Password: demo123")
     except Exception as e:
-        print(f"✗ Error creating sample user: {e}")
+        print(f"[ERROR] Error creating sample user: {e}")
         db.rollback()
     finally:
         db.close()
@@ -67,7 +67,7 @@ def main():
         print("="*50 + "\n")
         
     except Exception as e:
-        print(f"\n✗ Initialization failed: {e}")
+        print(f"\n[FAIL] Initialization failed: {e}")
         sys.exit(1)
 
 
