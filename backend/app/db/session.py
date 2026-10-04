@@ -46,5 +46,5 @@ def get_db():
 
 def init_db():
     """Initialize database tables."""
-    from app.models.database import User, ChatThread, ChatMessage, ContextMemory
+    from app.models.database import User, ChatThread, ChatMessage
     Base.metadata.create_all(bind=engine)

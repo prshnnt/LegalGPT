@@ -15,7 +15,6 @@ class User(Base):
     
     # Relationships
     chat_threads = relationship("ChatThread", back_populates="user", cascade="all, delete-orphan")
-    context_memories = relationship("ContextMemory", back_populates="user", cascade="all, delete-orphan")
 
 
 class ChatThread(Base):
@@ -30,7 +29,6 @@ class ChatThread(Base):
     # Relationships
     user = relationship("User", back_populates="chat_threads")
     messages = relationship("ChatMessage", back_populates="thread", cascade="all, delete-orphan", order_by="ChatMessage.created_at")
-    context_memories = relationship("ContextMemory", back_populates="thread", cascade="all, delete-orphan")
 
 
 class MessageRole(enum.Enum):
@@ -56,21 +54,3 @@ class ChatMessage(Base):
     # Relationships
     thread = relationship("ChatThread", back_populates="messages")
 
-
-class ContextMemory(Base):
-    __tablename__ = "context_memory"
-
-    id = Column(Integer, primary_key=True, index=True)
-    key = Column(String(255), unique=True, index=True, nullable=False)
-    value = Column(Text, nullable=True)
-    meta_data = Column("metadata", JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # For tracking which thread/user this memory belongs to (optional)
-    thread_id = Column(Integer, ForeignKey("chat_threads.id"), nullable=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-
-    # Relationships
-    thread = relationship("ChatThread", back_populates="context_memories")
-    user = relationship("User", back_populates="context_memories")

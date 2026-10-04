@@ -208,7 +208,6 @@ class ChatCheckpoint:
 
 ### Tools Layer (`app/tools/`)
 - **web_search_tool.py**: Internet search tool definition (using Tavily)
-- **context_memory_tool.py**: Context memory tools for storing, loading, and listing conversational context in DB
 
 ## Security Considerations
 
