@@ -1,33 +1,38 @@
 <script lang="ts">
-  import { Menu, Settings } from '@lucide/svelte';
+  import { Menu, Sun, Moon } from '@lucide/svelte';
 
   export let threadTitle = 'LegalGPT';
   export let onMenuClick: () => void;
+  export let isDarkMode: boolean = true;
+  export let onToggleTheme: (() => void) | undefined = undefined;
 </script>
 
-<header class="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-  <div class="flex items-center justify-between px-4 py-3">
-    <div class="flex items-center gap-3">
-      <button
-        on:click={onMenuClick}
-        class="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 md:hidden cursor-pointer"
-        aria-label="Open sidebar menu"
-      >
-        <Menu class="w-5 h-5" />
-      </button>
+<header class="chat-header">
+  <div class="chat-header-left">
+    <button
+      class="icon-btn"
+      on:click={onMenuClick}
+      aria-label="Open sidebar"
+      style="flex-shrink: 0;"
+    >
+      <Menu size={18} />
+    </button>
+    <span class="chat-header-title">{threadTitle}</span>
+  </div>
 
-      <h2 class="font-semibold text-lg text-gray-900 dark:text-gray-100">
-        {threadTitle}
-      </h2>
-    </div>
-
-    <div class="flex items-center gap-2">
+  <div class="chat-header-right">
+    {#if onToggleTheme}
       <button
-        class="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-        aria-label="Settings"
+        class="icon-btn"
+        on:click={onToggleTheme}
+        aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
       >
-        <Settings class="w-5 h-5" />
+        {#if isDarkMode}
+          <Sun size={16} />
+        {:else}
+          <Moon size={16} />
+        {/if}
       </button>
-    </div>
+    {/if}
   </div>
 </header>

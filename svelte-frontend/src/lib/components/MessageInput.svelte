@@ -1,140 +1,214 @@
 <script lang="ts">
-  import { Send, Paperclip, X, Globe } from '@lucide/svelte';
+  import { Paperclip, Globe, ChevronDown, X } from '@lucide/svelte';
   import type { Attachment } from '../types/chat';
   import { uploadFile } from '../services/api';
 
   export let onSend: (message: string, attachments: Attachment[]) => void;
-  export let isLoading = false;
-  export let webSearchEnabled = false;
+  export let isLoading: boolean = false;
+  export let webSearchEnabled: boolean = false;
   export let onWebSearchToggle: () => void;
+  export let sidebarWidth: number = 280;
 
   let message = '';
   let attachments: Attachment[] = [];
   let isUploading = false;
-  let fileInputRef: HTMLInputElement;
+  let fileRef: HTMLInputElement;
+  let textareaRef: HTMLTextAreaElement;
 
   function handleSend() {
-    if (!message.trim() && attachments.length === 0) return;
-    if (isLoading) return;
-
+    if ((!message.trim() && !attachments.length) || isLoading) return;
     onSend(message, attachments);
     message = '';
     attachments = [];
+    if (textareaRef) {
+      textareaRef.style.height = 'auto';
+    }
   }
 
-  function handleKeyDown(e: KeyboardEvent) {
+  function handleKey(e: KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   }
 
-  async function handleFileSelect(e: Event) {
-    const target = e.target as HTMLInputElement;
-    const files = Array.from(target.files || []);
-    if (files.length === 0) return;
+  function handleResize(e: Event) {
+    const el = e.target as HTMLTextAreaElement;
+    message = el.value;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+  }
 
+  async function handleFiles(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const files = Array.from(target.files ?? []);
+    if (!files.length) return;
     isUploading = true;
     try {
-      const uploadedFiles = await Promise.all(
-        files.map(file => uploadFile(file))
-      );
-      attachments = [...attachments, ...uploadedFiles];
-    } catch (error) {
-      console.error('Error uploading files:', error);
+      const uploaded = await Promise.all(files.map((f) => uploadFile(f)));
+      attachments = [...attachments, ...uploaded];
+    } catch (err) {
+      console.error('Upload error', err);
     } finally {
       isUploading = false;
+      target.value = '';
     }
   }
 
   function removeAttachment(id: string) {
-    attachments = attachments.filter(att => att.id !== id);
+    attachments = attachments.filter((x) => x.id !== id);
   }
+
+  $: canSend = (Boolean(message.trim()) || attachments.length > 0) && !isLoading;
 </script>
 
-<div class="fixed bottom-0 left-0 w-full border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 z-30">
-  <div class="max-w-4xl mx-auto p-4">
-    <!-- Attachments Display -->
+<div
+  class="composer-wrap"
+  style="left: {sidebarWidth}px;"
+>
+  <form class="card" on:submit|preventDefault={handleSend}>
+    <!-- Attachment preview -->
     {#if attachments.length > 0}
-      <div class="flex flex-wrap gap-2 mb-3 px-2">
-        {#each attachments as attachment (attachment.id)}
-          <div class="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm">
-            <Paperclip class="w-4 h-4 text-gray-500" />
-            <span class="text-gray-700 dark:text-gray-300 font-medium">{attachment.name}</span>
+      <div class="attach-preview">
+        {#each attachments as a (a.id)}
+          <div class="attachment-chip" style="cursor: default;">
+            <Paperclip size={11} />
+            <span>{a.name}</span>
             <button
-              on:click={() => removeAttachment(attachment.id)}
-              class="ml-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+              type="button"
+              on:click={() => removeAttachment(a.id)}
+              style="margin-left: 4px; color: rgba(255,255,255,0.40); cursor: pointer; background: none; border: none; padding: 0; display: flex;"
+              aria-label="Remove attachment"
             >
-              <X class="w-4 h-4" />
+              <X size={10} />
             </button>
           </div>
         {/each}
       </div>
     {/if}
 
-    <!-- Input Bar -->
-    <div class="relative flex items-end gap-2">
-      <input
-        bind:this={fileInputRef}
-        type="file"
-        multiple
-        class="hidden"
-        on:change={handleFileSelect}
-        accept="image/*,.pdf,.doc,.docx,.txt"
-      />
+    <!-- Textarea -->
+    <textarea
+      bind:this={textareaRef}
+      class="card-textarea"
+      value={message}
+      on:input={handleResize}
+      on:keydown={handleKey}
+      placeholder="Ask about Constitution of India, BNS, BNSS, case laws…"
+      rows={1}
+      disabled={isLoading}
+      aria-label="Chat message"
+    ></textarea>
 
-      <button
-        type="button"
-        on:click={() => fileInputRef?.click()}
-        disabled={isLoading || isUploading}
-        class="p-2.5 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors flex-shrink-0 cursor-pointer"
-        title="Attach documents"
-      >
-        <Paperclip class="w-5 h-5" />
-      </button>
-
-      <button
-        type="button"
-        on:click={onWebSearchToggle}
-        disabled={isLoading}
-        class={`p-2.5 rounded-lg transition-colors flex-shrink-0 cursor-pointer ${
-          webSearchEnabled
-            ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60'
-            : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
-        }`}
-        title={webSearchEnabled ? 'Web search enabled' : 'Enable web search'}
-      >
-        <Globe class="w-5 h-5" />
-      </button>
-
-      <div class="flex-1 relative">
-        <textarea
-          bind:value={message}
-          on:keydown={handleKeyDown}
-          placeholder="Ask about Constitution of India, BNS, BNSS, case laws..."
-          rows="2"
+    <!-- Toolbar strip -->
+    <div class="tools">
+      <!-- Left: chips -->
+      <div class="chips">
+        <!-- Web search chip -->
+        <button
+          type="button"
+          class={`chip${webSearchEnabled ? ' active' : ''}`}
+          on:click={onWebSearchToggle}
           disabled={isLoading}
-          class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent min-h-[52px] max-h-[180px] resize-none transition-all text-sm leading-relaxed"
-        ></textarea>
+          style="--cw: 107; --pl: 12; --ig: 3.7;"
+        >
+          <Globe size={13} class="chip-icon" />
+          <span class="chip-label">Web Search</span>
+        </button>
+
+        <!-- Attach file chip -->
+        <button
+          type="button"
+          class="chip"
+          on:click={() => fileRef?.click()}
+          disabled={isLoading || isUploading}
+          style="--cw: 108; --pl: 16; --ig: 3.9;"
+        >
+          <Paperclip size={12} class="chip-icon" />
+          <span class="chip-label">
+            {isUploading ? 'Uploading…' : 'Attach File'}
+          </span>
+        </button>
       </div>
 
-      <button
-        type="button"
-        on:click={handleSend}
-        disabled={(!message.trim() && attachments.length === 0) || isLoading}
-        class="p-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-xl shadow-md shadow-amber-600/20 disabled:opacity-50 transition-all flex-shrink-0 cursor-pointer"
-        aria-label="Send message"
-      >
-        <Send class="w-5 h-5" />
-      </button>
+      <!-- Right cluster -->
+      <div class="right">
+        <!-- Model selector -->
+        <button
+          type="button"
+          class="model-sel"
+          tabindex={-1}
+          aria-label="Model: LegalGPT"
+        >
+          <span>LegalGPT</span>
+          <ChevronDown
+            size={11}
+            class="model-chevron"
+            style="opacity: 0.55;"
+          />
+        </button>
+
+        <!-- Attach button -->
+        <button
+          type="button"
+          class="attach-btn"
+          on:click={() => fileRef?.click()}
+          disabled={isLoading || isUploading}
+          aria-label="Attach document"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.41 16.41A2 2 0 016.59 13.6l8.49-8.49" />
+          </svg>
+        </button>
+
+        <!-- Send circle -->
+        <button
+          type="submit"
+          class="send-btn"
+          disabled={!canSend}
+          aria-label="Send message"
+        >
+          <svg
+            class="send-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 19V5M5 12l7-7 7 7"
+              stroke="rgba(30,15,5,0.90)"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <!-- Helper Footnote -->
-    <p class="text-xs text-gray-500 dark:text-gray-500 mt-2 px-2">
-      Press Enter to send, Shift+Enter for new line
-      {#if webSearchEnabled}
-        <span class="ml-2 text-amber-600 dark:text-amber-400 font-medium">• Web search enabled</span>
-      {/if}
-    </p>
-  </div>
+    <!-- Web search note -->
+    {#if webSearchEnabled}
+      <div class="search-badge">
+        <Globe size={11} />
+        Web search enabled
+      </div>
+    {/if}
+
+    <!-- Hidden file input -->
+    <input
+      bind:this={fileRef}
+      type="file"
+      multiple
+      class="file-input-hidden"
+      on:change={handleFiles}
+      accept="image/*,.pdf,.doc,.docx,.txt"
+    />
+  </form>
 </div>

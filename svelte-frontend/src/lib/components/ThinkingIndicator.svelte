@@ -3,54 +3,50 @@
   import type { ThinkingStage } from '../types/chat';
 
   export let stages: ThinkingStage[] = [];
-  export let isActive = false;
+  export let isActive: boolean = false;
 
-  function getLabel(type: ThinkingStage['type']): string {
-    switch (type) {
-      case 'thinking':
-        return 'Thinking';
-      case 'searching':
-        return 'Searching the web';
-      case 'analyzing':
-        return 'Analyzing';
-      case 'complete':
-        return 'Complete';
-      default:
-        return 'Processing';
-    }
-  }
+  const LABELS: Record<ThinkingStage['type'], string> = {
+    thinking: 'Thinking',
+    searching: 'Searching the web',
+    analyzing: 'Analyzing',
+    complete: 'Complete',
+  };
 </script>
 
 {#if stages.length > 0 || isActive}
-  <div class="flex flex-col gap-2 my-3">
+  <div class="thinking-wrap">
     {#each stages as stage (stage.id)}
-      <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-        <div class="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800">
+      <div class="thinking-row">
+        <div class="thinking-icon-wrap">
           {#if stage.type === 'thinking'}
-            <Brain class="w-4 h-4" />
+            <Brain size={12} />
           {:else if stage.type === 'searching'}
-            <Search class="w-4 h-4" />
+            <Search size={12} />
           {:else if stage.type === 'analyzing'}
-            <Loader2 class="w-4 h-4 animate-spin" />
+            <span class="animate-spin flex items-center justify-center">
+              <Loader2 size={12} />
+            </span>
           {:else if stage.type === 'complete'}
-            <Check class="w-4 h-4" />
+            <Check size={12} />
           {:else}
-            <Loader2 class="w-4 h-4 animate-spin" />
+            <Loader2 size={12} />
           {/if}
         </div>
-        <span>{getLabel(stage.type)}</span>
+        <span>{LABELS[stage.type] ?? 'Processing'}</span>
         {#if stage.content}
-          <span class="text-gray-500 dark:text-gray-500">• {stage.content}</span>
+          <span style="color: rgba(255,255,255,0.30);">• {stage.content}</span>
         {/if}
       </div>
     {/each}
 
     {#if isActive && stages.length === 0}
-      <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-        <div class="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800">
-          <Loader2 class="w-4 h-4 animate-spin text-amber-600 dark:text-amber-400" />
+      <div class="thinking-row">
+        <div class="thinking-icon-wrap">
+          <div class="thinking-pulse">
+            <span></span><span></span><span></span>
+          </div>
         </div>
-        <span class="animate-pulse">Thinking...</span>
+        <span>Thinking…</span>
       </div>
     {/if}
   </div>
