@@ -78,7 +78,8 @@ class DeepAgentService:
                 subagents=subagents
             )
         finally:
-            checkpointer.close()
+            if type(checkpointer) != InMemorySaver:
+                checkpointer.close()
 
     async def stream_chat_response(
         self,

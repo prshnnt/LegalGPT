@@ -1,19 +1,46 @@
 import { useState } from 'react';
-import { MessageSquare, Plus, Menu, X, Scale, Trash2, LogOut } from 'lucide-react';
-import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
-import { ChatThread } from '../types/chat';
+import {
+  MessageSquare, Plus, X, Scale, Trash2, LogOut
+} from 'lucide-react';
+import type { ChatThread } from '../types/chat';
 
 interface SidebarProps {
   threads: ChatThread[];
   activeThreadId: string | number | null;
-  onThreadSelect: (threadId: string | number) => void;
-  onThreadDelete?: (threadId: string | number) => void;
+  onThreadSelect: (id: string | number) => void;
+  onThreadDelete?: (id: string | number) => void;
   onNewChat: () => void;
   onLogout?: () => void;
   isOpen: boolean;
   onToggle: () => void;
 }
+
+const formatDate = (date: Date): string => {
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const days = Math.floor(diff / 86_400_000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  return date.toLocaleDateString();
+};
+
+const groupThreads = (threads: ChatThread[]) => {
+  const groups: Record<string, ChatThread[]> = {
+    Today: [],
+    Yesterday: [],
+    'Previous 7 Days': [],
+    Older: [],
+  };
+  for (const t of threads) {
+    const d = t.timestamp ? formatDate(t.timestamp) : 'Older';
+    if (d === 'Today') groups.Today.push(t);
+    else if (d === 'Yesterday') groups.Yesterday.push(t);
+    else if (d.includes('days ago')) groups['Previous 7 Days'].push(t);
+    else groups.Older.push(t);
+  }
+  return groups;
+};
 
 export function Sidebar({
   threads,
@@ -23,172 +50,120 @@ export function Sidebar({
   onNewChat,
   onLogout,
   isOpen,
-  onToggle
+  onToggle,
 }: SidebarProps) {
-  const [hoveredThreadId, setHoveredThreadId] = useState<string | number | null>(null);
-
-  const formatDate = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    return date.toLocaleDateString();
-  };
-
-  const groupThreadsByDate = (threads: ChatThread[]) => {
-    const groups: { [key: string]: ChatThread[] } = {
-      'Today': [],
-      'Yesterday': [],
-      'Previous 7 Days': [],
-      'Older': []
-    };
-
-    threads.forEach(thread => {
-      const date = thread.timestamp ? formatDate(thread.timestamp) : 'Older';
-      if (date === 'Today') groups['Today'].push(thread);
-      else if (date === 'Yesterday') groups['Yesterday'].push(thread);
-      else if (date.includes('days ago')) groups['Previous 7 Days'].push(thread);
-      else groups['Older'].push(thread);
-    });
-
-    return groups;
-  };
-
-  const groupedThreads = groupThreadsByDate(threads);
-
-  const handleDeleteThread = (e: React.MouseEvent, threadId: string | number) => {
-    e.stopPropagation();
-    if (onThreadDelete) {
-      onThreadDelete(threadId);
-    }
-  };
+  const [hoveredId, setHoveredId] = useState<string | number | null>(null);
+  const grouped = groupThreads(threads);
 
   return (
     <>
-      {/* Mobile Overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={onToggle}
-        />
-      )}
+      {/* Mobile overlay - strictly hidden on desktop via CSS */}
+      <div
+        className={`sidebar-overlay ${isOpen ? 'open' : ''}`}
+        onClick={onToggle}
+        aria-hidden="true"
+      />
 
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col transition-transform duration-200 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          }`}
-      >
+      <aside className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-orange-600 flex items-center justify-center">
-              <Scale className="w-5 h-5 text-white" />
+        <div className="sidebar-header">
+          <div className="sidebar-brand">
+            <div className="sidebar-mark">
+              <Scale size={16} color="rgba(30,15,5,0.90)" strokeWidth={2.2} />
             </div>
-            <h1 className="font-semibold text-lg">LegalGPT</h1>
+            <span className="sidebar-wordmark">LegalGPT</span>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             onClick={onToggle}
-            className="md:hidden"
+            className="icon-btn"
+            style={{ display: 'none' }}
+            id="sidebar-close-btn"
+            aria-label="Close sidebar"
           >
-            <X className="w-5 h-5" />
-          </Button>
+            <X size={16} />
+          </button>
         </div>
 
-        {/* New Chat Button */}
-        <div className="p-3">
-          <Button
-            onClick={onNewChat}
-            className="w-full justify-start gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
-          >
-            <Plus className="w-4 h-4" />
-            New Legal Query
-          </Button>
-        </div>
+        {/* New Chat */}
+        <button className="sidebar-new-btn" onClick={onNewChat}>
+          <Plus size={15} strokeWidth={2.2} />
+          <span>New Legal Query</span>
+        </button>
 
-        {/* Chat Threads */}
-        <ScrollArea className="flex-1 px-3">
-          <div className="space-y-6 py-2">
-            {Object.entries(groupedThreads).map(([group, groupThreads]) => {
-              if (groupThreads.length === 0) return null;
-
-              return (
-                <div key={group}>
-                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-500 uppercase tracking-wide mb-2 px-2">
-                    {group}
-                  </h3>
-                  <div className="space-y-1">
-                    {groupThreads.map((thread) => (
-                      <div
-                        key={thread.id}
-                        className="relative group"
-                        onMouseEnter={() => setHoveredThreadId(thread.id)}
-                        onMouseLeave={() => setHoveredThreadId(null)}
+        {/* Thread list */}
+        <nav className="sidebar-threads">
+          {Object.entries(grouped).map(([group, items]) => {
+            if (!items.length) return null;
+            return (
+              <div key={group}>
+                <div className="sidebar-section-label">{group}</div>
+                {items.map((thread) => (
+                  <div
+                    key={thread.id}
+                    className={`thread-item${activeThreadId === thread.id ? ' active' : ''}`}
+                    onClick={() => onThreadSelect(thread.id)}
+                    onMouseEnter={() => setHoveredId(thread.id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                  >
+                    <MessageSquare size={14} className="thread-icon" />
+                    <span className="thread-title">{thread.title}</span>
+                    {onThreadDelete && hoveredId === thread.id && (
+                      <button
+                        className="thread-delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onThreadDelete(thread.id);
+                        }}
+                        aria-label="Delete thread"
                       >
-                        <button
-                          onClick={() => onThreadSelect(thread.id)}
-                          className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors ${activeThreadId === thread.id
-                              ? 'bg-gray-100 dark:bg-gray-800'
-                              : 'hover:bg-gray-50 dark:hover:bg-gray-900'
-                            }`}
-                        >
-                          <div className="flex items-start gap-2">
-                            <MessageSquare className="w-4 h-4 mt-0.5 text-gray-500 flex-shrink-0" />
-                            <div className="flex-1 min-w-0 pr-6">
-                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {thread.title}
-                              </p>
-                              {thread.preview && (
-                                <p className="text-xs text-gray-500 dark:text-gray-500 truncate mt-0.5">
-                                  {thread.preview}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                        {onThreadDelete && hoveredThreadId === thread.id && (
-                          <button
-                            onClick={(e) => handleDeleteThread(e, thread.id)}
-                            className="absolute right-2 top-2 p-1.5 rounded-md bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            title="Delete thread"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                        <Trash2 size={12} />
+                      </button>
+                    )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </ScrollArea>
+                ))}
+              </div>
+            );
+          })}
 
-        {/* Footer */}
-        <div className="border-t border-gray-200 dark:border-gray-800">
-          {onLogout && (
-            <div className="p-3">
-              <Button
-                onClick={onLogout}
-                variant="ghost"
-                className="w-full justify-start gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-              >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </Button>
+          {threads.length === 0 && (
+            <div style={{
+              padding: '32px 8px',
+              textAlign: 'center',
+              color: 'rgba(255,255,255,0.22)',
+              fontSize: '13px',
+              lineHeight: '1.6',
+            }}>
+              No conversations yet.<br />Start a new legal query.
             </div>
           )}
-          <div className="p-4">
-            <p className="text-xs text-gray-500 dark:text-gray-500 text-center">
-              LegalGPT for Law Students
-            </p>
+        </nav>
+
+        {/* Footer */}
+        <div className="sidebar-footer">
+          {onLogout && (
+            <button className="sidebar-logout-btn" onClick={onLogout}>
+              <LogOut size={14} />
+              <span>Logout</span>
+            </button>
+          )}
+          <div style={{
+            marginTop: '10px',
+            fontSize: '10px',
+            color: 'rgba(255,255,255,0.18)',
+            textAlign: 'center',
+            letterSpacing: '0.04em',
+          }}>
+            LegalGPT for Law Students
           </div>
         </div>
       </aside>
+
+      {/* CSS to show close btn on mobile */}
+      <style>{`
+        @media (max-width:599px), (max-height:599px) and (max-width:1180px) {
+          #sidebar-close-btn { display: flex !important; }
+        }
+      `}</style>
     </>
   );
 }

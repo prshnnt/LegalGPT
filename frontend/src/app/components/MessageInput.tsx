@@ -1,8 +1,6 @@
-import { useState, useRef, KeyboardEvent } from 'react';
-import { Send, Paperclip, X, Globe } from 'lucide-react';
-import { Button } from './ui/button';
-import { Textarea } from './ui/textarea';
-import { Attachment } from '../types/chat';
+import { useState, useRef, type KeyboardEvent, type ChangeEvent } from 'react';
+import { ArrowUp, Paperclip, Globe, ChevronDown, X } from 'lucide-react';
+import type { Attachment } from '../types/chat';
 import { uploadFile } from '../services/api';
 
 interface MessageInputProps {
@@ -10,145 +8,222 @@ interface MessageInputProps {
   isLoading?: boolean;
   webSearchEnabled: boolean;
   onWebSearchToggle: () => void;
+  /** left offset so the card centers correctly when sidebar is visible */
+  sidebarWidth?: number;
 }
 
-export function MessageInput({ 
-  onSend, 
+export function MessageInput({
+  onSend,
   isLoading,
   webSearchEnabled,
-  onWebSearchToggle 
+  onWebSearchToggle,
+  sidebarWidth = 280,
 }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = () => {
-    if (!message.trim() && attachments.length === 0) return;
-    if (isLoading) return;
-
+    if ((!message.trim() && !attachments.length) || isLoading) return;
     onSend(message, attachments);
     setMessage('');
     setAttachments([]);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+  const handleResize = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+  };
 
+  const handleFiles = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     setIsUploading(true);
     try {
-      const uploadedFiles = await Promise.all(
-        files.map(file => uploadFile(file))
-      );
-      setAttachments(prev => [...prev, ...uploadedFiles]);
-    } catch (error) {
-      console.error('Error uploading files:', error);
+      const uploaded = await Promise.all(files.map((f) => uploadFile(f)));
+      setAttachments((prev) => [...prev, ...uploaded]);
+    } catch (err) {
+      console.error('Upload error', err);
     } finally {
       setIsUploading(false);
     }
   };
 
-  const removeAttachment = (id: string) => {
-    setAttachments(prev => prev.filter(att => att.id !== id));
-  };
+  const canSend = (!!message.trim() || attachments.length > 0) && !isLoading;
 
   return (
-    <div className="fixed bottom-0 left-0 w-full border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950" >
-      <div className="max-w-4xl mx-auto p-4">
-        {/* Attachments Display */}
+    <div
+      className="composer-wrap"
+      style={{ left: `${sidebarWidth}px` }}
+    >
+      {/* Background video behind composer */}
+      <form className="card" onSubmit={(e) => { e.preventDefault(); handleSend(); }}>
+        {/* ── Attachment preview ── */}
         {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3 px-2">
-            {attachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm"
-              >
-                <Paperclip className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700 dark:text-gray-300">{attachment.name}</span>
+          <div className="attach-preview">
+            {attachments.map((a) => (
+              <div key={a.id} className="attachment-chip" style={{ cursor: 'default' }}>
+                <Paperclip size={11} />
+                <span>{a.name}</span>
                 <button
-                  onClick={() => removeAttachment(attachment.id)}
-                  className="ml-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  type="button"
+                  onClick={() => setAttachments((p) => p.filter((x) => x.id !== a.id))}
+                  style={{
+                    marginLeft: '4px',
+                    color: 'rgba(255,255,255,0.40)',
+                    cursor: 'pointer',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    display: 'flex',
+                  }}
                 >
-                  <X className="w-4 h-4" />
+                  <X size={10} />
                 </button>
               </div>
             ))}
           </div>
         )}
 
-        {/* Input Area */}
-        <div className="relative flex items-end gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-            accept="image/*,.pdf,.doc,.docx,.txt"
-          />
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading || isUploading}
-            className="flex-shrink-0"
-          >
-            <Paperclip className="w-5 h-5" />
-          </Button>
+        {/* ── Textarea ── */}
+        <textarea
+          ref={textareaRef}
+          className="card-textarea"
+          value={message}
+          onChange={handleResize}
+          onKeyDown={handleKey}
+          placeholder="Ask about Constitution of India, BNS, BNSS, case laws…"
+          rows={1}
+          disabled={isLoading}
+          aria-label="Chat message"
+        />
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onWebSearchToggle}
-            disabled={isLoading}
-            className={`flex-shrink-0 ${
-              webSearchEnabled 
-                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50' 
-                : ''
-            }`}
-            title={webSearchEnabled ? 'Web search enabled' : 'Enable web search'}
-          >
-            <Globe className="w-5 h-5" />
-          </Button>
-
-          <div className="flex-1 relative">
-            <Textarea
-              ref={textareaRef}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about Constitution of India, BNS, BNSS, case laws..."
-              className="min-h-[60px] max-h-[200px] resize-none pr-12"
+        {/* ── Toolbar strip ── */}
+        <div className="tools">
+          {/* Left: chips */}
+          <div className="chips">
+            {/* Web search chip */}
+            <button
+              type="button"
+              className={`chip${webSearchEnabled ? ' active' : ''}`}
+              onClick={onWebSearchToggle}
               disabled={isLoading}
-            />
+              style={{ '--cw': '107', '--pl': '12', '--ig': '3.7' } as React.CSSProperties}
+            >
+              <Globe size={13} className="chip-icon" />
+              <span className="chip-label">Web Search</span>
+            </button>
+
+            {/* Attach screens chip */}
+            <button
+              type="button"
+              className="chip"
+              onClick={() => fileRef.current?.click()}
+              disabled={isLoading || isUploading}
+              style={{ '--cw': '108', '--pl': '16', '--ig': '3.9' } as React.CSSProperties}
+            >
+              <Paperclip size={12} className="chip-icon" />
+              <span className="chip-label">
+                {isUploading ? 'Uploading…' : 'Attach File'}
+              </span>
+            </button>
           </div>
 
-          <Button
-            onClick={handleSend}
-            disabled={(!message.trim() && attachments.length === 0) || isLoading}
-            size="icon"
-            className="flex-shrink-0 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
-          >
-            <Send className="w-5 h-5" />
-          </Button>
+          {/* Right cluster — absolute on desktop */}
+          <div className="right">
+            {/* Model selector */}
+            <button
+              type="button"
+              className="model-sel"
+              tabIndex={-1}
+              aria-label="Model: LegalGPT"
+            >
+              <span>LegalGPT</span>
+              <ChevronDown
+                size={11}
+                className="model-chevron"
+                style={{ opacity: 0.55 }}
+              />
+            </button>
+
+            {/* Attach button (raw SVG, no padding) */}
+            <button
+              type="button"
+              className="attach-btn"
+              onClick={() => fileRef.current?.click()}
+              disabled={isLoading || isUploading}
+              aria-label="Attach document"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.41 16.41A2 2 0 016.59 13.6l8.49-8.49" />
+              </svg>
+            </button>
+
+            {/* Send circle */}
+            <button
+              type="submit"
+              className="send-btn"
+              disabled={!canSend}
+              aria-label="Build it"
+            >
+              {/* White up-arrow */}
+              <svg
+                className="send-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 19V5M5 12l7-7 7 7"
+                  stroke="rgba(30,15,5,0.90)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        {/* Helper Text */}
-        <p className="text-xs text-gray-500 dark:text-gray-500 mt-2 px-2">
-          Press Enter to send, Shift+Enter for new line
-          {webSearchEnabled && <span className="ml-2 text-amber-600 dark:text-amber-400">• Web search enabled</span>}
-        </p>
-      </div>
+        {/* Web search note */}
+        {webSearchEnabled && (
+          <div className="search-badge">
+            <Globe size={11} />
+            Web search enabled
+          </div>
+        )}
+
+        {/* Hidden file input */}
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          className="file-input-hidden"
+          onChange={handleFiles}
+          accept="image/*,.pdf,.doc,.docx,.txt"
+        />
+      </form>
     </div>
   );
 }

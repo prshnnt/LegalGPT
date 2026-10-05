@@ -35,7 +35,8 @@ def get_threads(
 ):
     """Get all chat threads for current user."""
     threads = db.query(ChatThread).filter(
-        ChatThread.user_id == current_user.id
+        ChatThread.user_id == current_user.id,
+        ChatThread.messages.any()
     ).order_by(ChatThread.updated_at.desc()).all()
     
     return threads

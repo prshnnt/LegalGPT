@@ -14,22 +14,22 @@ import {
   StreamChunk,
 } from '../types/chat';
 
-const API_BASE_URL = 'https://legalgpt-pydb.onrender.com';
+const API_BASE_URL = 'http://127.0.0.1:8000';
 
 // Token management
 export const TokenManager = {
   getToken(): string | null {
     return localStorage.getItem('token');
   },
-  
+
   setToken(token: string): void {
     localStorage.setItem('token', token);
   },
-  
+
   clearToken(): void {
     localStorage.removeItem('token');
   },
-  
+
   getAuthHeaders(): HeadersInit {
     const token = this.getToken();
     return {
@@ -200,7 +200,7 @@ export async function uploadFile(file: File): Promise<Attachment> {
   // Placeholder implementation - replace with your file upload API
   // Example: const formData = new FormData(); formData.append('file', file);
   // fetch(`${API_BASE_URL}/upload`, { method: 'POST', body: formData, headers: TokenManager.getAuthHeaders() })
-  
+
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({

@@ -1,35 +1,45 @@
-import { Menu, Settings } from 'lucide-react';
-import { Button } from './ui/button';
+import { Menu, Sun, Moon } from 'lucide-react';
 
 interface ChatHeaderProps {
   threadTitle: string;
   onMenuClick: () => void;
+  isDarkMode?: boolean;
+  onToggleTheme?: () => void;
 }
 
-export function ChatHeader({ threadTitle, onMenuClick }: ChatHeaderProps) {
+export function ChatHeader({
+  threadTitle,
+  onMenuClick,
+  isDarkMode,
+  onToggleTheme,
+}: ChatHeaderProps) {
   return (
-    <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onMenuClick}
-            className="md:hidden"
-          >
-            <Menu className="w-5 h-5" />
-          </Button>
-          
-          <h2 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-            {threadTitle}
-          </h2>
-        </div>
+    <header className="chat-header">
+      <div className="chat-header-left">
+        <button
+          className="icon-btn"
+          onClick={onMenuClick}
+          aria-label="Open sidebar"
+          style={{ flexShrink: 0 }}
+        >
+          <Menu size={18} />
+        </button>
+        <span className="chat-header-title">{threadTitle}</span>
+      </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <Settings className="w-5 h-5" />
-          </Button>
-        </div>
+      <div className="chat-header-right">
+        {onToggleTheme && (
+          <button
+            className="icon-btn"
+            onClick={onToggleTheme}
+            aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDarkMode
+              ? <Sun size={16} />
+              : <Moon size={16} />
+            }
+          </button>
+        )}
       </div>
     </header>
   );

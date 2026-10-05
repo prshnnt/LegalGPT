@@ -1,8 +1,4 @@
 import { useState } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { login, register, TokenManager } from '../services/api';
 import { Scale } from 'lucide-react';
 
@@ -22,17 +18,15 @@ export function AuthModal({ isOpen, onSuccess }: AuthModalProps) {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
     try {
       if (mode === 'login') {
-        const response = await login({ username, password });
-        TokenManager.setToken(response.access_token);
+        const res = await login({ username, password });
+        TokenManager.setToken(res.access_token);
         onSuccess();
       } else {
         await register({ username, password });
-        // After registration, automatically login
-        const response = await login({ username, password });
-        TokenManager.setToken(response.access_token);
+        const res = await login({ username, password });
+        TokenManager.setToken(res.access_token);
         onSuccess();
       }
     } catch (err: any) {
@@ -42,85 +36,82 @@ export function AuthModal({ isOpen, onSuccess }: AuthModalProps) {
     }
   };
 
-  const toggleMode = () => {
-    setMode(mode === 'login' ? 'register' : 'login');
-    setError('');
-  };
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" hideCloseButton>
-        <DialogHeader>
-          <div className="flex items-center justify-center mb-4">
-            <div className="size-16 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-              <Scale className="size-9 text-white" />
-            </div>
+    <div className="auth-overlay">
+      <div className="auth-card">
+        {/* Logo */}
+        <div className="auth-logo-wrap">
+          <div className="auth-logo">
+            <Scale size={28} color="rgba(30,15,5,0.90)" strokeWidth={2.2} />
           </div>
-          <DialogTitle className="text-center text-2xl">
-            {mode === 'login' ? 'Welcome to LegalGPT' : 'Create Account'}
-          </DialogTitle>
-          <DialogDescription className="text-center">
-            {mode === 'login'
-              ? 'Sign in to access your legal research assistant'
-              : 'Register to start your legal research journey'}
-          </DialogDescription>
-        </DialogHeader>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <Input
-              id="username"
+        <h2 className="auth-title">
+          {mode === 'login' ? 'Welcome to LegalGPT' : 'Create Account'}
+        </h2>
+        <p className="auth-sub">
+          {mode === 'login'
+            ? 'Sign in to your legal research assistant'
+            : 'Start your legal research journey'}
+        </p>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-field">
+            <label className="form-label" htmlFor="auth-username">USERNAME</label>
+            <input
+              id="auth-username"
               type="text"
+              className="form-input"
               placeholder="Enter your username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
               disabled={isLoading}
+              autoComplete="username"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
+          <div className="form-field">
+            <label className="form-label" htmlFor="auth-password">PASSWORD</label>
+            <input
+              id="auth-password"
               type="password"
+              className="form-input"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              autoComplete="current-password"
             />
           </div>
 
-          {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
-              {error}
-            </div>
-          )}
+          {error && <div className="auth-error">{error}</div>}
 
-          <Button
+          <button
             type="submit"
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+            className="auth-submit-btn"
+            disabled={isLoading || !username || !password}
+          >
+            {isLoading ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Register'}
+          </button>
+        </form>
+
+        <div className="auth-switch">
+          <button
+            type="button"
+            className="auth-switch-btn"
+            onClick={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(''); }}
             disabled={isLoading}
           >
-            {isLoading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Register'}
-          </Button>
-
-          <div className="text-center text-sm">
-            <button
-              type="button"
-              onClick={toggleMode}
-              className="text-amber-600 hover:text-amber-700 hover:underline"
-              disabled={isLoading}
-            >
-              {mode === 'login'
-                ? "Don't have an account? Register"
-                : 'Already have an account? Sign in'}
-            </button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+            {mode === 'login'
+              ? "Don't have an account? Register"
+              : 'Already have an account? Sign in'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
