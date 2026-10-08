@@ -1,7 +1,7 @@
 
-  # Chat UI with API Integration
+  # LegalGPT Frontend
 
-  This is a code bundle for Chat UI with API Integration. The original project is available at https://www.figma.com/design/zRZOHzrjsoJYMYhxYudzNy/Chat-UI-with-API-Integration.
+This is the frontend user interface for LegalGPT.
 
   ## Running the code
 
